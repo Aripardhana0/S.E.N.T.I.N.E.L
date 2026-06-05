@@ -1,8 +1,10 @@
 """Entry point FastAPI. Menyalakan DB, scheduler, dan Telegram bila aktif."""
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 
 from app import journal, market_data, market_guard, order_queue, telegram_bot
 from app.config import config
@@ -14,9 +16,12 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 logger = logging.getLogger("main")
 
 _tg_app = None
+_DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
 
 
 @asynccontextmanager
@@ -30,10 +35,14 @@ async def lifespan(app: FastAPI):
     global _tg_app
     _tg_app = telegram_bot.build_application()
     if _tg_app is not None:
-        await _tg_app.initialize()
-        await _tg_app.start()
-        await _tg_app.updater.start_polling()
-        logger.info("Telegram bot polling started.")
+        try:
+            await _tg_app.initialize()
+            await _tg_app.start()
+            await _tg_app.updater.start_polling()
+            logger.info("Telegram bot polling started.")
+        except Exception as exc:
+            logger.error("Telegram bot disabled during startup: %s", exc.__class__.__name__)
+            _tg_app = None
 
     logger.info("App started in mode=%s", current_mode())
     yield
@@ -52,6 +61,11 @@ app = FastAPI(title="BTC Demo Trading AI Agent - Auto", lifespan=lifespan)
 @app.get("/")
 def root():
     return {"name": "BTC Demo Trading AI Agent", "mode": current_mode()}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return HTMLResponse(_DASHBOARD_PATH.read_text(encoding="utf-8"))
 
 
 @app.get("/health")

@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SENTINEL Monitor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --panel-soft: #f0f3f6;
+      --line: #d9dee5;
+      --text: #151a22;
+      --muted: #67707f;
+      --ok: #147d52;
+      --warn: #aa6200;
+      --bad: #b42318;
+      --accent: #1267b3;
+      --shadow: 0 1px 2px rgba(16, 24, 40, .06);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(246, 247, 249, .94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 14px 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    button {
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      padding: 7px 11px;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+    }
+    button:hover { border-color: #aeb7c3; }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    button.danger {
+      color: var(--bad);
+      border-color: #efc7c1;
+    }
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 18px 20px 28px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel h2 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+      font-weight: 700;
+      background: var(--panel-soft);
+    }
+    .panel-body { padding: 12px; }
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .metric {
+      min-height: 66px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 9px;
+      background: #fff;
+    }
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .value {
+      margin-top: 5px;
+      font-size: 19px;
+      font-weight: 750;
+      overflow-wrap: anywhere;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .pill.ok { color: var(--ok); border-color: #b8dfcc; background: #eefaf4; }
+    .pill.warn { color: var(--warn); border-color: #f2d4a7; background: #fff7e8; }
+    .pill.bad { color: var(--bad); border-color: #efc7c1; background: #fff1ef; }
+    .reasons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .table-wrap {
+      overflow: auto;
+      max-height: 360px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #fbfcfd;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      z-index: 1;
+    }
+    td.mono, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .empty {
+      padding: 18px 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      max-width: min(420px, calc(100vw - 36px));
+      background: #151a22;
+      color: #fff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 28px rgba(16, 24, 40, .22);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: .18s ease;
+      overflow-wrap: anywhere;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (max-width: 980px) {
+      .span-3, .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
+      .bar { align-items: flex-start; flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+    @media (max-width: 560px) {
+      main, .bar { padding-left: 12px; padding-right: 12px; }
+      .metrics { grid-template-columns: 1fr; }
+      h1 { font-size: 16px; }
+      button { width: 100%; }
+      .actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+      .actions button.danger { grid-column: span 2; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <div>
+        <h1>SENTINEL Monitor</h1>
+        <div class="sub" id="updated">Loading...</div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="refreshBtn" type="button">Refresh</button>
+        <button id="syncBtn" type="button">Sync Fills</button>
+        <button class="danger" id="cancelBtn" type="button">Cancel Queue</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="grid">
+      <article class="panel span-4">
+        <h2>Runtime <span id="modePill" class="pill">...</span></h2>
+        <div class="panel-body metrics">
+          <div class="metric"><div class="label">Symbol</div><div id="symbol" class="value">-</div></div>
+          <div class="metric"><div class="label">Execution</div><div id="execution" class="value">-</div></div>
+          <div class="metric"><div class="label">Auto Entry</div><div id="autoEntry" class="value">-</div></div>
+          <div class="metric"><div class="label">Guard</div><div id="guardEnabled" class="value">-</div></div>
+        </div>
+      </article>
+
+      <article class="panel span-4">
+        <h2>Today</h2>
+        <div class="panel-body metrics">
+          <div class="metric"><div class="label">Trades</div><div id="tradesCount" class="value">0</div></div>
+          <div class="metric"><div class="label">Realized PnL</div><div id="pnl" class="value">0</div></div>
+          <div class="metric"><div class="label">Consecutive Loss</div><div id="lossCount" class="value">0</div></div>
+          <div class="metric"><div class="label">Day</div><div id="day" class="value">-</div></div>
+        </div>
+      </article>
+
+      <article class="panel span-4">
+        <h2>Market Guard <span id="guardPill" class="pill">...</span></h2>
+        <div class="panel-body">
+          <div class="metrics">
+            <div class="metric"><div class="label">ATR Ratio</div><div id="atrRatio" class="value">-</div></div>
+            <div class="metric"><div class="label">Volume Ratio</div><div id="volRatio" class="value">-</div></div>
+            <div class="metric"><div class="label">Range Ratio</div><div id="rangeRatio" class="value">-</div></div>
+            <div class="metric"><div class="label">Move %</div><div id="movePct" class="value">-</div></div>
+          </div>
+          <div id="guardReasons" class="reasons"></div>
+        </div>
+      </article>
+
+      <article class="panel span-5">
+        <h2>Active Queue <span id="queueCount" class="pill">0</span></h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Side</th><th>Entry</th><th>Size</th><th>Status</th><th>Order</th></tr></thead>
+            <tbody id="queueRows"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel span-7">
+        <h2>Latest Plans</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Created</th><th>Side</th><th>Entry</th><th>RR</th><th>Risk</th><th>AI</th><th>Status</th></tr></thead>
+            <tbody id="planRows"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel span-12">
+        <h2>Trades</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Opened</th><th>Side</th><th>Entry</th><th>Size</th><th>Mode</th><th>Status</th><th>Order</th></tr></thead>
+            <tbody id="tradeRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const fmt = (value, digits = 2) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toLocaleString(undefined, { maximumFractionDigits: digits }) : "-";
+    };
+    const shortDate = (value) => {
+      if (!value) return "-";
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? String(value).slice(0, 19) : d.toLocaleString();
+    };
+    const pillClass = (value) => value ? "pill ok" : "pill bad";
+    const toast = (message) => {
+      const el = $("toast");
+      el.textContent = message;
+      el.classList.add("show");
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+    };
+    async function getJson(path) {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) throw new Error(`${path}: ${res.status}`);
+      return res.json();
+    }
+    async function postJson(path) {
+      const res = await fetch(path, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
+      return data;
+    }
+    function renderStatus(data) {
+      $("symbol").textContent = data.symbol || "-";
+      $("execution").textContent = data.execution_enabled ? "Enabled" : "Off";
+      $("autoEntry").textContent = data.auto_entry ? "On" : "Off";
+      $("guardEnabled").textContent = data.guard_enabled ? "On" : "Off";
+      $("modePill").textContent = data.mode || "-";
+      $("modePill").className = data.mode === "BINANCE_DEMO" ? "pill warn" : "pill ok";
+      const today = data.today || {};
+      $("tradesCount").textContent = today.trades_count ?? 0;
+      $("pnl").textContent = fmt(today.realized_pnl, 4);
+      $("lossCount").textContent = today.consecutive_loss ?? 0;
+      $("day").textContent = today.day || "-";
+    }
+    function renderGuard(data) {
+      const metrics = data.metrics || {};
+      $("guardPill").textContent = data.bad ? "BAD" : "OK";
+      $("guardPill").className = data.bad ? "pill bad" : "pill ok";
+      $("atrRatio").textContent = fmt(metrics.atr_ratio);
+      $("volRatio").textContent = fmt(metrics.vol_ratio);
+      $("rangeRatio").textContent = fmt(metrics.range_ratio);
+      $("movePct").textContent = fmt(metrics.move_pct);
+      const reasons = data.reasons || [];
+      $("guardReasons").innerHTML = reasons.length
+        ? reasons.map((r) => `<span class="pill bad">${escapeHtml(r)}</span>`).join("")
+        : `<span class="pill ok">Clear</span>`;
+    }
+    function renderQueue(rows) {
+      $("queueCount").textContent = rows.length;
+      $("queueRows").innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td class="mono">${r.id}</td>
+          <td>${escapeHtml(r.side)}</td>
+          <td class="mono">${fmt(r.entry, 4)}</td>
+          <td class="mono">${fmt(r.position_size, 6)}</td>
+          <td>${statusPill(r.status)}</td>
+          <td class="mono">${escapeHtml(r.binance_order_id || "-")}</td>
+        </tr>`).join("") : `<tr><td class="empty" colspan="6">No active queue</td></tr>`;
+    }
+    function renderPlans(rows) {
+      $("planRows").innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td class="mono">${r.id}</td>
+          <td>${shortDate(r.created_at)}</td>
+          <td>${escapeHtml(r.side || "-")}</td>
+          <td class="mono">${fmt(r.entry, 4)}</td>
+          <td class="mono">${fmt(r.risk_reward)}</td>
+          <td>${r.risk_allowed ? "Allowed" : "Rejected"}</td>
+          <td>${escapeHtml(r.ai_verdict || "-")}</td>
+          <td>${statusPill(r.status)}</td>
+        </tr>`).join("") : `<tr><td class="empty" colspan="8">No trade plans</td></tr>`;
+    }
+    function renderTrades(rows) {
+      $("tradeRows").innerHTML = rows.length ? rows.map((r) => `
+        <tr>
+          <td class="mono">${r.id}</td>
+          <td>${shortDate(r.opened_at)}</td>
+          <td>${escapeHtml(r.side || "-")}</td>
+          <td class="mono">${fmt(r.entry, 4)}</td>
+          <td class="mono">${fmt(r.size, 6)}</td>
+          <td>${escapeHtml(r.mode || "-")}</td>
+          <td>${statusPill(r.status)}</td>
+          <td class="mono">${escapeHtml(r.binance_order_id || r.okx_order_id || "-")}</td>
+        </tr>`).join("") : `<tr><td class="empty" colspan="8">No trades</td></tr>`;
+    }
+    function statusPill(status) {
+      const s = escapeHtml(status || "-");
+      const cls = /reject|cancel|fail|bad|expired/i.test(s) ? "bad" : /queue|pending|watch/i.test(s) ? "warn" : "ok";
+      return `<span class="pill ${cls}">${s}</span>`;
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+    async function refresh() {
+      try {
+        const [status, guard, queue, plans, trades] = await Promise.all([
+          getJson("/status"),
+          getJson("/market-guard"),
+          getJson("/queue"),
+          getJson("/trade-plans"),
+          getJson("/trades"),
+        ]);
+        renderStatus(status);
+        renderGuard(guard);
+        renderQueue(Array.isArray(queue) ? queue : []);
+        renderPlans(Array.isArray(plans) ? plans : []);
+        renderTrades(Array.isArray(trades) ? trades : []);
+        $("updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        toast(err.message || String(err));
+      }
+    }
+    $("refreshBtn").addEventListener("click", refresh);
+    $("syncBtn").addEventListener("click", async () => {
+      try {
+        const res = await postJson("/sync-fills");
+        toast(`Sync checked ${res.checked ?? 0}, filled ${res.filled ?? 0}`);
+        refresh();
+      } catch (err) { toast(err.message || String(err)); }
+    });
+    $("cancelBtn").addEventListener("click", async () => {
+      if (!confirm("Cancel all pending queue?")) return;
+      try {
+        const res = await postJson("/cancel-all");
+        toast(`Canceled ${res.canceled ?? 0} queue item(s)`);
+        refresh();
+      } catch (err) { toast(err.message || String(err)); }
+    });
+    refresh();
+    setInterval(refresh, 10000);
+  </script>
+</body>
+</html>
