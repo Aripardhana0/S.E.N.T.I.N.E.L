@@ -7,17 +7,23 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f6f7f9;
-      --panel: #ffffff;
-      --panel-soft: #f0f3f6;
-      --line: #d9dee5;
-      --text: #151a22;
-      --muted: #67707f;
-      --ok: #147d52;
-      --warn: #aa6200;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --line: #d8dee8;
+      --line-soft: #e8edf3;
+      --text: #18202b;
+      --muted: #667386;
+      --subtle: #8792a2;
+      --accent: #1769aa;
+      --accent-soft: #edf6ff;
+      --ok: #0f766e;
+      --ok-soft: #e8f7f4;
+      --warn: #a15c07;
+      --warn-soft: #fff5e6;
       --bad: #b42318;
-      --accent: #1267b3;
-      --shadow: 0 1px 2px rgba(16, 24, 40, .06);
+      --bad-soft: #fff0ed;
+      --shadow: 0 1px 2px rgba(16, 24, 40, .05);
     }
 
     * { box-sizing: border-box; }
@@ -30,63 +36,100 @@
     header {
       position: sticky;
       top: 0;
-      z-index: 10;
-      background: rgba(246, 247, 249, .94);
+      z-index: 20;
+      background: rgba(244, 246, 248, .96);
       border-bottom: 1px solid var(--line);
       backdrop-filter: blur(10px);
     }
-    .bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      max-width: 1280px;
+    .topbar {
+      max-width: 1320px;
       margin: 0 auto;
-      padding: 14px 20px;
+      padding: 12px 20px;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 16px;
+      align-items: center;
     }
     h1 {
       margin: 0;
       font-size: 18px;
-      font-weight: 700;
+      line-height: 1.2;
+      font-weight: 750;
       letter-spacing: 0;
     }
-    .sub {
+    .timestamp {
+      margin-top: 3px;
       color: var(--muted);
       font-size: 12px;
-      margin-top: 2px;
     }
     .actions {
       display: flex;
-      align-items: center;
-      gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
+      gap: 8px;
     }
     button {
       min-height: 34px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      background: var(--panel);
+      background: var(--surface);
       color: var(--text);
       cursor: pointer;
       padding: 7px 11px;
-      font-weight: 600;
+      font-weight: 650;
       box-shadow: var(--shadow);
     }
-    button:hover { border-color: #aeb7c3; }
+    button:hover { border-color: #aeb8c6; }
     button.primary {
       background: var(--accent);
-      color: #fff;
       border-color: var(--accent);
+      color: #fff;
     }
     button.danger {
       color: var(--bad);
-      border-color: #efc7c1;
+      border-color: #efc6bf;
+      background: #fff;
     }
     main {
-      max-width: 1280px;
+      max-width: 1320px;
       margin: 0 auto;
       padding: 18px 20px 28px;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.2fr) repeat(4, minmax(150px, .7fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .status-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      min-height: 84px;
+    }
+    .status-card.primary-state {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .eyebrow {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      margin-bottom: 5px;
+    }
+    .big {
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 780;
+      overflow-wrap: anywhere;
+    }
+    .hint {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
     }
     .grid {
       display: grid;
@@ -94,55 +137,79 @@
       gap: 12px;
     }
     .panel {
-      background: var(--panel);
+      background: var(--surface);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
       overflow: hidden;
     }
-    .panel h2 {
+    .panel-head {
+      min-height: 45px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin: 0;
-      padding: 11px 12px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    h2 {
+      margin: 0;
       font-size: 14px;
-      font-weight: 700;
-      background: var(--panel-soft);
+      font-weight: 750;
+      letter-spacing: 0;
     }
     .panel-body { padding: 12px; }
-    .span-3 { grid-column: span 3; }
     .span-4 { grid-column: span 4; }
     .span-5 { grid-column: span 5; }
     .span-7 { grid-column: span 7; }
-    .span-8 { grid-column: span 8; }
     .span-12 { grid-column: span 12; }
-    .metrics {
+    .detail-list {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 0;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      overflow: hidden;
     }
-    .metric {
-      min-height: 66px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 9px;
+    .detail-row {
+      display: grid;
+      grid-template-columns: minmax(110px, .75fr) minmax(120px, 1fr);
+      gap: 12px;
+      min-height: 42px;
+      padding: 9px 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--line-soft);
       background: #fff;
     }
+    .detail-row:last-child { border-bottom: 0; }
     .label {
       color: var(--muted);
       font-size: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      font-weight: 600;
     }
     .value {
-      margin-top: 5px;
-      font-size: 19px;
-      font-weight: 750;
+      font-size: 14px;
+      font-weight: 720;
+      text-align: right;
       overflow-wrap: anywhere;
+    }
+    .guard-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+    .guard-cell {
+      padding: 10px;
+      border-right: 1px solid var(--line-soft);
+      background: #fff;
+    }
+    .guard-cell:last-child { border-right: 0; }
+    .guard-cell .value {
+      margin-top: 3px;
+      text-align: left;
+      font-size: 18px;
     }
     .pill {
       display: inline-flex;
@@ -154,61 +221,71 @@
       background: #fff;
       color: var(--muted);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 750;
+      white-space: nowrap;
     }
-    .pill.ok { color: var(--ok); border-color: #b8dfcc; background: #eefaf4; }
-    .pill.warn { color: var(--warn); border-color: #f2d4a7; background: #fff7e8; }
-    .pill.bad { color: var(--bad); border-color: #efc7c1; background: #fff1ef; }
-    .reasons {
+    .pill.ok { color: var(--ok); border-color: #abd7d0; background: var(--ok-soft); }
+    .pill.warn { color: var(--warn); border-color: #e7c083; background: var(--warn-soft); }
+    .pill.bad { color: var(--bad); border-color: #edc0ba; background: var(--bad-soft); }
+    .pill.neutral { color: var(--muted); border-color: var(--line); background: #fff; }
+    .notes {
       display: flex;
-      gap: 6px;
       flex-wrap: wrap;
+      gap: 6px;
       margin-top: 10px;
+    }
+    .explain {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
     }
     .table-wrap {
       overflow: auto;
-      max-height: 360px;
+      max-height: 390px;
     }
     table {
       width: 100%;
+      min-width: 760px;
       border-collapse: collapse;
-      min-width: 720px;
     }
     th, td {
-      padding: 9px 10px;
-      border-bottom: 1px solid var(--line);
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line-soft);
       text-align: left;
-      vertical-align: top;
       white-space: nowrap;
+      vertical-align: middle;
     }
     th {
       position: sticky;
       top: 0;
-      background: #fbfcfd;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
       z-index: 1;
+      background: #fbfcfd;
+      color: #526071;
+      font-size: 12px;
+      font-weight: 750;
     }
-    td.mono, .mono {
+    tbody tr:hover td { background: #fbfdff; }
+    .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
     }
+    .num { text-align: right; }
     .empty {
-      padding: 18px 12px;
+      height: 72px;
       color: var(--muted);
       text-align: center;
+      background: #fff;
     }
     .toast {
       position: fixed;
       right: 18px;
       bottom: 18px;
-      max-width: min(420px, calc(100vw - 36px));
-      background: #151a22;
+      width: min(420px, calc(100vw - 36px));
+      background: #18202b;
       color: #fff;
       border-radius: 8px;
       padding: 10px 12px;
-      box-shadow: 0 10px 28px rgba(16, 24, 40, .22);
+      box-shadow: 0 12px 30px rgba(16, 24, 40, .24);
       opacity: 0;
       transform: translateY(8px);
       pointer-events: none;
@@ -219,27 +296,44 @@
       opacity: 1;
       transform: translateY(0);
     }
-    @media (max-width: 980px) {
-      .span-3, .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
-      .bar { align-items: flex-start; flex-direction: column; }
-      .actions { justify-content: flex-start; }
+    @media (max-width: 1120px) {
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .span-4, .span-5, .span-7 { grid-column: span 12; }
+      .guard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .guard-cell:nth-child(2) { border-right: 0; }
+      .guard-cell:nth-child(-n+2) { border-bottom: 1px solid var(--line-soft); }
     }
-    @media (max-width: 560px) {
-      main, .bar { padding-left: 12px; padding-right: 12px; }
-      .metrics { grid-template-columns: 1fr; }
-      h1 { font-size: 16px; }
-      button { width: 100%; }
-      .actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
-      .actions button.danger { grid-column: span 2; }
+    @media (max-width: 640px) {
+      .topbar {
+        grid-template-columns: 1fr;
+        padding: 12px;
+      }
+      main { padding: 14px 12px 24px; }
+      .summary { grid-template-columns: 1fr; }
+      .actions {
+        justify-content: stretch;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+      }
+      .actions button { width: 100%; }
+      .actions .danger { grid-column: span 2; }
+      .detail-row { grid-template-columns: 1fr; gap: 3px; }
+      .value { text-align: left; }
+      .guard-grid { grid-template-columns: 1fr; }
+      .guard-cell {
+        border-right: 0;
+        border-bottom: 1px solid var(--line-soft);
+      }
+      .guard-cell:last-child { border-bottom: 0; }
     }
   </style>
 </head>
 <body>
   <header>
-    <div class="bar">
+    <div class="topbar">
       <div>
         <h1>SENTINEL Monitor</h1>
-        <div class="sub" id="updated">Loading...</div>
+        <div class="timestamp" id="updated">Loading dashboard...</div>
       </div>
       <div class="actions">
         <button class="primary" id="refreshBtn" type="button">Refresh</button>
@@ -250,65 +344,123 @@
   </header>
 
   <main>
+    <section class="summary">
+      <div class="status-card primary-state">
+        <div>
+          <div class="eyebrow">Current Mode</div>
+          <div class="big" id="modeText">-</div>
+        </div>
+        <div class="hint" id="modeHint">Checking runtime status.</div>
+      </div>
+      <div class="status-card">
+        <div class="eyebrow">Symbol</div>
+        <div class="big" id="symbol">-</div>
+        <div class="hint">Market being watched</div>
+      </div>
+      <div class="status-card">
+        <div class="eyebrow">Open Queue</div>
+        <div class="big" id="queueBig">0</div>
+        <div class="hint" id="queueHint">No pending entries</div>
+      </div>
+      <div class="status-card">
+        <div class="eyebrow">Today</div>
+        <div class="big" id="tradesCount">0 trades</div>
+        <div class="hint">Realized PnL <span id="pnl">0</span></div>
+      </div>
+      <div class="status-card">
+        <div class="eyebrow">Market Guard</div>
+        <div class="big" id="guardText">-</div>
+        <div class="hint" id="guardHint">Waiting for metrics</div>
+      </div>
+    </section>
+
     <section class="grid">
       <article class="panel span-4">
-        <h2>Runtime <span id="modePill" class="pill">...</span></h2>
-        <div class="panel-body metrics">
-          <div class="metric"><div class="label">Symbol</div><div id="symbol" class="value">-</div></div>
-          <div class="metric"><div class="label">Execution</div><div id="execution" class="value">-</div></div>
-          <div class="metric"><div class="label">Auto Entry</div><div id="autoEntry" class="value">-</div></div>
-          <div class="metric"><div class="label">Guard</div><div id="guardEnabled" class="value">-</div></div>
+        <div class="panel-head">
+          <h2>Runtime</h2>
+          <span id="modePill" class="pill neutral">...</span>
         </div>
-      </article>
-
-      <article class="panel span-4">
-        <h2>Today</h2>
-        <div class="panel-body metrics">
-          <div class="metric"><div class="label">Trades</div><div id="tradesCount" class="value">0</div></div>
-          <div class="metric"><div class="label">Realized PnL</div><div id="pnl" class="value">0</div></div>
-          <div class="metric"><div class="label">Consecutive Loss</div><div id="lossCount" class="value">0</div></div>
-          <div class="metric"><div class="label">Day</div><div id="day" class="value">-</div></div>
-        </div>
-      </article>
-
-      <article class="panel span-4">
-        <h2>Market Guard <span id="guardPill" class="pill">...</span></h2>
         <div class="panel-body">
-          <div class="metrics">
-            <div class="metric"><div class="label">ATR Ratio</div><div id="atrRatio" class="value">-</div></div>
-            <div class="metric"><div class="label">Volume Ratio</div><div id="volRatio" class="value">-</div></div>
-            <div class="metric"><div class="label">Range Ratio</div><div id="rangeRatio" class="value">-</div></div>
-            <div class="metric"><div class="label">Move %</div><div id="movePct" class="value">-</div></div>
+          <div class="detail-list">
+            <div class="detail-row"><div class="label">Execution</div><div id="execution" class="value">-</div></div>
+            <div class="detail-row"><div class="label">Auto Entry</div><div id="autoEntry" class="value">-</div></div>
+            <div class="detail-row"><div class="label">Guard</div><div id="guardEnabled" class="value">-</div></div>
+            <div class="detail-row"><div class="label">Manual Approval</div><div id="manualApproval" class="value">-</div></div>
           </div>
-          <div id="guardReasons" class="reasons"></div>
+          <div class="explain" id="runtimeExplain">Runtime summary will appear after refresh.</div>
+        </div>
+      </article>
+
+      <article class="panel span-4">
+        <div class="panel-head">
+          <h2>Risk Day</h2>
+          <span id="day" class="pill neutral">-</span>
+        </div>
+        <div class="panel-body">
+          <div class="detail-list">
+            <div class="detail-row"><div class="label">Realized PnL</div><div id="pnlDetail" class="value">0</div></div>
+            <div class="detail-row"><div class="label">Trades Today</div><div id="tradesDetail" class="value">0</div></div>
+            <div class="detail-row"><div class="label">Consecutive Loss</div><div id="lossCount" class="value">0</div></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel span-4">
+        <div class="panel-head">
+          <h2>Market Guard</h2>
+          <span id="guardPill" class="pill neutral">...</span>
+        </div>
+        <div class="panel-body">
+          <div class="guard-grid">
+            <div class="guard-cell"><div class="label">ATR Ratio</div><div id="atrRatio" class="value">-</div></div>
+            <div class="guard-cell"><div class="label">Volume Ratio</div><div id="volRatio" class="value">-</div></div>
+            <div class="guard-cell"><div class="label">Range Ratio</div><div id="rangeRatio" class="value">-</div></div>
+            <div class="guard-cell"><div class="label">Move %</div><div id="movePct" class="value">-</div></div>
+          </div>
+          <div id="guardReasons" class="notes"></div>
         </div>
       </article>
 
       <article class="panel span-5">
-        <h2>Active Queue <span id="queueCount" class="pill">0</span></h2>
+        <div class="panel-head">
+          <h2>Entry Queue</h2>
+          <span id="queueCount" class="pill neutral">0 items</span>
+        </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Side</th><th>Entry</th><th>Size</th><th>Status</th><th>Order</th></tr></thead>
+            <thead>
+              <tr><th>ID</th><th>Side</th><th class="num">Entry</th><th class="num">Size</th><th>Status</th><th>Order</th></tr>
+            </thead>
             <tbody id="queueRows"></tbody>
           </table>
         </div>
       </article>
 
       <article class="panel span-7">
-        <h2>Latest Plans</h2>
+        <div class="panel-head">
+          <h2>Latest Plans</h2>
+          <span id="planCount" class="pill neutral">0 plans</span>
+        </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Created</th><th>Side</th><th>Entry</th><th>RR</th><th>Risk</th><th>AI</th><th>Status</th></tr></thead>
+            <thead>
+              <tr><th>ID</th><th>Created</th><th>Side</th><th class="num">Entry</th><th class="num">RR</th><th>Risk</th><th>AI</th><th>Status</th></tr>
+            </thead>
             <tbody id="planRows"></tbody>
           </table>
         </div>
       </article>
 
       <article class="panel span-12">
-        <h2>Trades</h2>
+        <div class="panel-head">
+          <h2>Trades</h2>
+          <span id="tradeCount" class="pill neutral">0 trades</span>
+        </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>ID</th><th>Opened</th><th>Side</th><th>Entry</th><th>Size</th><th>Mode</th><th>Status</th><th>Order</th></tr></thead>
+            <thead>
+              <tr><th>ID</th><th>Opened</th><th>Side</th><th class="num">Entry</th><th class="num">Size</th><th>Mode</th><th>Status</th><th>Order</th></tr>
+            </thead>
             <tbody id="tradeRows"></tbody>
           </table>
         </div>
@@ -329,13 +481,15 @@
       const d = new Date(value);
       return Number.isNaN(d.getTime()) ? String(value).slice(0, 19) : d.toLocaleString();
     };
-    const pillClass = (value) => value ? "pill ok" : "pill bad";
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[ch]));
     const toast = (message) => {
       const el = $("toast");
       el.textContent = message;
       el.classList.add("show");
       clearTimeout(window.__toastTimer);
-      window.__toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+      window.__toastTimer = setTimeout(() => el.classList.remove("show"), 3400);
     };
     async function getJson(path) {
       const res = await fetch(path, { cache: "no-store" });
@@ -348,21 +502,42 @@
       if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
       return data;
     }
+    function yesNo(value) {
+      return value ? `<span class="pill ok">On</span>` : `<span class="pill neutral">Off</span>`;
+    }
+    function modeHint(mode, execution) {
+      if (mode === "DRY_RUN") return "Simulation only. No exchange order will be sent.";
+      if (mode === "PAPER") return "Paper tracking is active without exchange orders.";
+      if (mode === "BINANCE_DEMO") return execution ? "Demo exchange execution is enabled." : "Demo mode is configured but execution is off.";
+      return "Execution is disabled.";
+    }
     function renderStatus(data) {
+      const mode = data.mode || "-";
+      $("modeText").textContent = mode;
+      $("modeHint").textContent = modeHint(mode, data.execution_enabled);
+      $("modePill").textContent = mode;
+      $("modePill").className = mode === "BINANCE_DEMO" ? "pill warn" : mode === "DRY_RUN" ? "pill ok" : "pill neutral";
       $("symbol").textContent = data.symbol || "-";
-      $("execution").textContent = data.execution_enabled ? "Enabled" : "Off";
-      $("autoEntry").textContent = data.auto_entry ? "On" : "Off";
-      $("guardEnabled").textContent = data.guard_enabled ? "On" : "Off";
-      $("modePill").textContent = data.mode || "-";
-      $("modePill").className = data.mode === "BINANCE_DEMO" ? "pill warn" : "pill ok";
+      $("execution").innerHTML = yesNo(data.execution_enabled);
+      $("autoEntry").innerHTML = yesNo(data.auto_entry);
+      $("guardEnabled").innerHTML = yesNo(data.guard_enabled);
+      $("manualApproval").innerHTML = yesNo(data.require_manual_approval);
+      $("runtimeExplain").textContent = data.execution_enabled
+        ? "Valid setups can become exchange queue entries when risk, guard, and AI checks pass."
+        : "The system can still create simulated queue entries while exchange execution stays off.";
+
       const today = data.today || {};
-      $("tradesCount").textContent = today.trades_count ?? 0;
+      $("tradesCount").textContent = `${today.trades_count ?? 0} trades`;
+      $("tradesDetail").textContent = today.trades_count ?? 0;
       $("pnl").textContent = fmt(today.realized_pnl, 4);
+      $("pnlDetail").textContent = fmt(today.realized_pnl, 4);
       $("lossCount").textContent = today.consecutive_loss ?? 0;
       $("day").textContent = today.day || "-";
     }
     function renderGuard(data) {
       const metrics = data.metrics || {};
+      $("guardText").textContent = data.bad ? "Blocked" : "Clear";
+      $("guardHint").textContent = data.bad ? "New entries should be skipped." : "New entries may continue if other checks pass.";
       $("guardPill").textContent = data.bad ? "BAD" : "OK";
       $("guardPill").className = data.bad ? "pill bad" : "pill ok";
       $("atrRatio").textContent = fmt(metrics.atr_ratio);
@@ -372,55 +547,65 @@
       const reasons = data.reasons || [];
       $("guardReasons").innerHTML = reasons.length
         ? reasons.map((r) => `<span class="pill bad">${escapeHtml(r)}</span>`).join("")
-        : `<span class="pill ok">Clear</span>`;
+        : `<span class="pill ok">Market is clear</span>`;
     }
     function renderQueue(rows) {
-      $("queueCount").textContent = rows.length;
+      $("queueBig").textContent = rows.length;
+      $("queueHint").textContent = rows.some((r) => r.status === "queued")
+        ? "Exchange queue contains live demo orders"
+        : rows.length ? "Queue contains simulated entries" : "No pending entries";
+      $("queueCount").textContent = `${rows.length} item${rows.length === 1 ? "" : "s"}`;
       $("queueRows").innerHTML = rows.length ? rows.map((r) => `
         <tr>
           <td class="mono">${r.id}</td>
-          <td>${escapeHtml(r.side)}</td>
-          <td class="mono">${fmt(r.entry, 4)}</td>
-          <td class="mono">${fmt(r.position_size, 6)}</td>
+          <td>${sidePill(r.side)}</td>
+          <td class="mono num">${fmt(r.entry, 4)}</td>
+          <td class="mono num">${fmt(r.position_size, 6)}</td>
           <td>${statusPill(r.status)}</td>
           <td class="mono">${escapeHtml(r.binance_order_id || "-")}</td>
         </tr>`).join("") : `<tr><td class="empty" colspan="6">No active queue</td></tr>`;
     }
     function renderPlans(rows) {
+      $("planCount").textContent = `${rows.length} plan${rows.length === 1 ? "" : "s"}`;
       $("planRows").innerHTML = rows.length ? rows.map((r) => `
         <tr>
           <td class="mono">${r.id}</td>
           <td>${shortDate(r.created_at)}</td>
-          <td>${escapeHtml(r.side || "-")}</td>
-          <td class="mono">${fmt(r.entry, 4)}</td>
-          <td class="mono">${fmt(r.risk_reward)}</td>
-          <td>${r.risk_allowed ? "Allowed" : "Rejected"}</td>
-          <td>${escapeHtml(r.ai_verdict || "-")}</td>
+          <td>${sidePill(r.side)}</td>
+          <td class="mono num">${fmt(r.entry, 4)}</td>
+          <td class="mono num">${fmt(r.risk_reward)}</td>
+          <td>${r.risk_allowed ? '<span class="pill ok">Allowed</span>' : '<span class="pill bad">Rejected</span>'}</td>
+          <td>${aiPill(r.ai_verdict)}</td>
           <td>${statusPill(r.status)}</td>
-        </tr>`).join("") : `<tr><td class="empty" colspan="8">No trade plans</td></tr>`;
+        </tr>`).join("") : `<tr><td class="empty" colspan="8">No trade plans yet</td></tr>`;
     }
     function renderTrades(rows) {
+      $("tradeCount").textContent = `${rows.length} trade${rows.length === 1 ? "" : "s"}`;
       $("tradeRows").innerHTML = rows.length ? rows.map((r) => `
         <tr>
           <td class="mono">${r.id}</td>
           <td>${shortDate(r.opened_at)}</td>
-          <td>${escapeHtml(r.side || "-")}</td>
-          <td class="mono">${fmt(r.entry, 4)}</td>
-          <td class="mono">${fmt(r.size, 6)}</td>
+          <td>${sidePill(r.side)}</td>
+          <td class="mono num">${fmt(r.entry, 4)}</td>
+          <td class="mono num">${fmt(r.size, 6)}</td>
           <td>${escapeHtml(r.mode || "-")}</td>
           <td>${statusPill(r.status)}</td>
           <td class="mono">${escapeHtml(r.binance_order_id || r.okx_order_id || "-")}</td>
-        </tr>`).join("") : `<tr><td class="empty" colspan="8">No trades</td></tr>`;
+        </tr>`).join("") : `<tr><td class="empty" colspan="8">No filled trades yet</td></tr>`;
+    }
+    function sidePill(side) {
+      const s = escapeHtml(side || "-");
+      return `<span class="pill ${/short/i.test(s) ? "bad" : "ok"}">${s}</span>`;
+    }
+    function aiPill(verdict) {
+      const v = escapeHtml(verdict || "-");
+      const cls = /reject/i.test(v) ? "bad" : /watch|-/.test(v) ? "warn" : "ok";
+      return `<span class="pill ${cls}">${v}</span>`;
     }
     function statusPill(status) {
       const s = escapeHtml(status || "-");
-      const cls = /reject|cancel|fail|bad|expired/i.test(s) ? "bad" : /queue|pending|watch/i.test(s) ? "warn" : "ok";
+      const cls = /reject|cancel|fail|bad|expired/i.test(s) ? "bad" : /queue|pending|watch|sim/i.test(s) ? "warn" : "ok";
       return `<span class="pill ${cls}">${s}</span>`;
-    }
-    function escapeHtml(value) {
-      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-      }[ch]));
     }
     async function refresh() {
       try {
@@ -436,7 +621,7 @@
         renderQueue(Array.isArray(queue) ? queue : []);
         renderPlans(Array.isArray(plans) ? plans : []);
         renderTrades(Array.isArray(trades) ? trades : []);
-        $("updated").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+        $("updated").textContent = `Last updated ${new Date().toLocaleTimeString()}`;
       } catch (err) {
         toast(err.message || String(err));
       }
@@ -445,15 +630,15 @@
     $("syncBtn").addEventListener("click", async () => {
       try {
         const res = await postJson("/sync-fills");
-        toast(`Sync checked ${res.checked ?? 0}, filled ${res.filled ?? 0}`);
+        toast(`Sync checked ${res.checked ?? 0}; filled ${res.filled ?? 0}.`);
         refresh();
       } catch (err) { toast(err.message || String(err)); }
     });
     $("cancelBtn").addEventListener("click", async () => {
-      if (!confirm("Cancel all pending queue?")) return;
+      if (!confirm("Cancel all active queue entries?")) return;
       try {
         const res = await postJson("/cancel-all");
-        toast(`Canceled ${res.canceled ?? 0} queue item(s)`);
+        toast(`Canceled ${res.canceled ?? 0} queue item(s).`);
         refresh();
       } catch (err) { toast(err.message || String(err)); }
     });
