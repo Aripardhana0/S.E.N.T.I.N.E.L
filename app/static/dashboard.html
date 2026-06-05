@@ -577,6 +577,13 @@
       if (!res.ok) throw new Error(`${path}: ${res.status}`);
       return res.json();
     }
+    async function getPanel(name, path) {
+      try {
+        return { name, ok: true, data: await getJson(path) };
+      } catch (err) {
+        return { name, ok: false, error: err.message || String(err) };
+      }
+    }
     async function postJson(path) {
       const res = await fetch(path, { method: "POST" });
       const data = await res.json().catch(() => ({}));
@@ -760,27 +767,30 @@
       return `<span class="pill ${cls}">${d}</span>`;
     }
     async function refresh() {
-      try {
-        $("connection").textContent = "sync";
-        const [status, guard, perf, queue, plans, trades] = await Promise.all([
-          getJson("/status"),
-          getJson("/market-guard"),
-          getJson("/performance"),
-          getJson("/queue"),
-          getJson("/trade-plans"),
-          getJson("/trades"),
-        ]);
-        renderStatus(status);
-        renderGuard(guard);
-        renderPerformance(perf);
-        renderQueue(Array.isArray(queue) ? queue : []);
-        renderPlans(Array.isArray(plans) ? plans : []);
-        renderTrades(Array.isArray(trades) ? trades : []);
-        $("connection").textContent = "online";
-        $("updated").textContent = `last update ${new Date().toLocaleTimeString()}`;
-      } catch (err) {
-        $("connection").textContent = "error";
-        toast(err.message || String(err));
+      $("connection").textContent = "sync";
+      const results = await Promise.all([
+        getPanel("status", "/status"),
+        getPanel("guard", "/market-guard"),
+        getPanel("performance", "/performance"),
+        getPanel("queue", "/queue"),
+        getPanel("plans", "/trade-plans"),
+        getPanel("trades", "/trades"),
+      ]);
+      const byName = Object.fromEntries(results.map((item) => [item.name, item]));
+      if (byName.status.ok) renderStatus(byName.status.data);
+      if (byName.guard.ok) renderGuard(byName.guard.data);
+      if (byName.performance.ok) renderPerformance(byName.performance.data);
+      if (byName.queue.ok) renderQueue(Array.isArray(byName.queue.data) ? byName.queue.data : []);
+      if (byName.plans.ok) renderPlans(Array.isArray(byName.plans.data) ? byName.plans.data : []);
+      if (byName.trades.ok) renderTrades(Array.isArray(byName.trades.data) ? byName.trades.data : []);
+
+      const errors = results.filter((item) => !item.ok);
+      $("connection").textContent = errors.length ? "partial" : "online";
+      $("updated").textContent = errors.length
+        ? `partial update ${new Date().toLocaleTimeString()}`
+        : `last update ${new Date().toLocaleTimeString()}`;
+      if (errors.length) {
+        toast(`API issue: ${errors.map((item) => `${item.name} ${item.error}`).join("; ")}`);
       }
     }
     $("refreshBtn").addEventListener("click", refresh);

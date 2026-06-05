@@ -6,6 +6,7 @@ simple statistics, and returns deterministic rules for the risk manager.
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import datetime, timedelta, timezone
 
 from app.config import config
@@ -384,7 +385,7 @@ def save_daily_evaluation(evaluation: dict) -> None:
         )
 
 
-def build_performance_dashboard() -> dict:
+def _build_performance_dashboard() -> dict:
     return {
         "learning_enabled": config.LEARNING_ENABLED,
         "thresholds": {
@@ -402,3 +403,17 @@ def build_performance_dashboard() -> dict:
         "ai_verdicts": ai_verdict_summary(),
         "daily": build_daily_evaluation(),
     }
+
+
+def build_performance_dashboard() -> dict:
+    try:
+        return _build_performance_dashboard()
+    except sqlite3.OperationalError as exc:
+        message = str(exc).lower()
+        if "no such column" not in message and "no such table" not in message:
+            raise
+        from app.database import init_db, migrate_brach_auto
+
+        init_db()
+        migrate_brach_auto()
+        return _build_performance_dashboard()
