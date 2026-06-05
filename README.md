@@ -1,7 +1,7 @@
 # BTC Demo Trading AI Agent
 
 AI-assisted trading agent untuk **belajar & demo/paper trading** BTC-USDT di OKX.
-Ringan, dirancang untuk VPS 2 CPU / 2 GB RAM. **Bukan nasihat finansial.**
+**NFA.**
 
 ## Disclaimer
 
