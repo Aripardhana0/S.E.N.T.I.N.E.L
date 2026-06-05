@@ -1,0 +1,18 @@
+services:
+  agent:
+    build: .
+    container_name: btc-demo-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist database SQLite di host.
+      - ./data:/app/data
+    # Batasi resource agar aman di VPS 2 CPU / 2 GB RAM.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.50"
+          memory: 1500M
