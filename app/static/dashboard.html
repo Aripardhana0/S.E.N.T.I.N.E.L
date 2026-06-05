@@ -154,6 +154,7 @@
     .span-4 { grid-column: span 4; }
     .span-5 { grid-column: span 5; }
     .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
     .span-12 { grid-column: span 12; }
     .panel {
       min-width: 0;
@@ -255,6 +256,26 @@
       gap: 6px;
       margin-top: 10px;
     }
+    .rule-list {
+      display: grid;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .rule {
+      padding: 8px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .018);
+      overflow-wrap: anywhere;
+    }
+    .reason-text {
+      max-width: 260px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .table-wrap {
       overflow: auto;
       max-height: 392px;
@@ -309,7 +330,7 @@
 
     @media (max-width: 1160px) {
       .status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .span-4, .span-5, .span-7 { grid-column: span 12; }
+      .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
     }
     @media (max-width: 760px) {
       .topbar { grid-template-columns: 1fr; padding: 12px; }
@@ -428,6 +449,54 @@
         </div>
       </article>
 
+      <article class="panel span-4">
+        <div class="panel-head">
+          <h2>learning guard</h2>
+          <span id="learningPill" class="pill info">...</span>
+        </div>
+        <div class="panel-body">
+          <div class="kv">
+            <div class="kv-item"><div class="label">closed sample</div><div id="closedSample" class="value">0</div></div>
+            <div class="kv-item"><div class="label">winrate</div><div id="globalWinrate" class="value">0%</div></div>
+            <div class="kv-item"><div class="label">net pnl</div><div id="globalNetPnl" class="value">0</div></div>
+            <div class="kv-item"><div class="label">weak setup</div><div id="weakSetup" class="value">-</div></div>
+          </div>
+          <div id="learningRules" class="rule-list"></div>
+        </div>
+      </article>
+
+      <article class="panel span-8">
+        <div class="panel-head">
+          <h2>setup performance</h2>
+          <span id="setupPerfCount" class="pill info">0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>setup</th><th class="num">closed</th><th class="num">winrate</th><th class="num">streak</th><th class="num">net pnl</th><th>rule</th></tr>
+            </thead>
+            <tbody id="setupPerfRows"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel span-12">
+        <div class="panel-head">
+          <h2>daily evaluation</h2>
+          <span id="dailyPerfDay" class="pill info">-</span>
+        </div>
+        <div class="panel-body">
+          <div class="kv">
+            <div class="kv-item"><div class="label">plans</div><div id="evalPlans" class="value">0</div></div>
+            <div class="kv-item"><div class="label">closed</div><div id="evalClosed" class="value">0</div></div>
+            <div class="kv-item"><div class="label">day winrate</div><div id="evalWinrate" class="value">0%</div></div>
+            <div class="kv-item"><div class="label">day pnl</div><div id="evalPnl" class="value">0</div></div>
+          </div>
+          <div id="dailyRecommendations" class="notes"></div>
+          <div id="aiVerdicts" class="notes"></div>
+        </div>
+      </article>
+
       <article class="panel span-5">
         <div class="panel-head">
           <h2>entry queue</h2>
@@ -451,7 +520,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>created</th><th>side</th><th class="num">entry</th><th class="num">rr</th><th>risk</th><th>ai</th><th>status</th></tr>
+              <tr><th>id</th><th>created</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">rr</th><th>ai</th><th>reason</th><th>status</th></tr>
             </thead>
             <tbody id="planRows"></tbody>
           </table>
@@ -466,7 +535,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>opened</th><th>side</th><th class="num">entry</th><th class="num">size</th><th>mode</th><th>status</th><th>order</th></tr>
+              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">size</th><th class="num">pnl</th><th>status</th><th>order</th></tr>
             </thead>
             <tbody id="tradeRows"></tbody>
           </table>
@@ -492,6 +561,10 @@
     const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
     }[ch]));
+    const clip = (value, limit = 74) => {
+      const text = String(value || "-");
+      return text.length > limit ? `${text.slice(0, limit - 1)}...` : text;
+    };
     const toast = (message) => {
       const el = $("toast");
       el.textContent = message;
@@ -575,6 +648,51 @@
         ? reasons.map((r) => `<span class="pill bad">${escapeHtml(r)}</span>`).join("")
         : '<span class="pill ok">clear</span>';
     }
+    function renderPerformance(data) {
+      const summary = data.closed_summary || {};
+      const setups = Array.isArray(data.setups) ? data.setups : [];
+      const daily = data.daily || {};
+      const rules = Array.isArray(data.rules) ? data.rules : [];
+      const weak = setups.length
+        ? setups.slice().sort((a, b) =>
+            Number(a.winrate || 0) - Number(b.winrate || 0)
+            || Number(b.loss_streak || 0) - Number(a.loss_streak || 0)
+          )[0]
+        : null;
+
+      $("learningPill").textContent = data.learning_enabled ? "on" : "off";
+      $("learningPill").className = data.learning_enabled ? "pill ok" : "pill";
+      $("closedSample").textContent = `${summary.total || 0}`;
+      $("globalWinrate").textContent = `${fmt(summary.winrate)}%`;
+      $("globalNetPnl").textContent = fmt(summary.net_pnl, 8);
+      $("weakSetup").textContent = weak ? clip(weak.setup_type || weak.setup_key, 22) : "-";
+      $("learningRules").innerHTML = rules.length
+        ? rules.map((r) => `<div class="rule">${escapeHtml(r)}</div>`).join("")
+        : '<div class="rule">no learning rules loaded</div>';
+
+      $("setupPerfCount").textContent = `${setups.length}`;
+      $("setupPerfRows").innerHTML = setups.length ? setups.map((r) => `
+        <tr>
+          <td title="${escapeHtml(r.setup_key)}">${escapeHtml(clip(r.setup_type || r.setup_key, 34))}</td>
+          <td class="num">${r.total ?? 0}</td>
+          <td class="num">${fmt(r.winrate)}%</td>
+          <td class="num">${r.loss_streak ?? 0}</td>
+          <td class="num">${fmt(r.net_pnl, 8)}</td>
+          <td>${decisionPill(r.decision)}</td>
+        </tr>`).join("") : '<tr><td class="empty" colspan="6">no closed setup sample yet</td></tr>';
+
+      $("dailyPerfDay").textContent = daily.day || "-";
+      $("evalPlans").textContent = `${daily.plans_total ?? 0}`;
+      $("evalClosed").textContent = `${daily.closed_trades ?? 0}`;
+      $("evalWinrate").textContent = `${fmt(daily.winrate)}%`;
+      $("evalPnl").textContent = fmt(daily.realized_pnl, 8);
+      $("dailyRecommendations").innerHTML = (daily.recommendations || []).map(
+        (r) => `<span class="pill info">${escapeHtml(r)}</span>`
+      ).join("") || '<span class="pill">no review</span>';
+      $("aiVerdicts").innerHTML = (daily.ai_verdicts || []).map(
+        (v) => `<span class="pill">${escapeHtml(v.verdict)} ${v.total}</span>`
+      ).join("") || '<span class="pill">no ai verdict today</span>';
+    }
     function renderQueue(rows) {
       const sim = rows.filter((r) => r.status === "queued_sim").length;
       const live = rows.filter((r) => r.status === "queued").length;
@@ -598,13 +716,14 @@
         <tr>
           <td>${r.id}</td>
           <td>${shortDate(r.created_at)}</td>
+          <td title="${escapeHtml(r.setup_key || "-")}">${escapeHtml(clip(r.setup_type || "-", 22))}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
           <td class="num">${fmt(r.risk_reward)}</td>
-          <td>${r.risk_allowed ? '<span class="pill ok">allow</span>' : '<span class="pill bad">reject</span>'}</td>
           <td>${aiPill(r.ai_verdict)}</td>
+          <td><div class="reason-text" title="${escapeHtml(r.ai_reason || r.risk_reason || r.learning_notes || "-")}">${escapeHtml(clip(r.ai_reason || r.risk_reason || r.learning_notes || "-", 54))}</div></td>
           <td>${statusPill(r.status)}</td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="8">no plans</td></tr>';
+        </tr>`).join("") : '<tr><td class="empty" colspan="9">no plans</td></tr>';
     }
     function renderTrades(rows) {
       $("tradeCount").textContent = `${rows.length}`;
@@ -612,13 +731,14 @@
         <tr>
           <td>${r.id}</td>
           <td>${shortDate(r.opened_at)}</td>
+          <td>${escapeHtml(clip(r.setup_type || "-", 22))}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
           <td class="num">${fmt(r.size, 6)}</td>
-          <td>${escapeHtml(r.mode || "-")}</td>
+          <td class="num">${fmt(r.pnl, 8)}</td>
           <td>${statusPill(r.status)}</td>
           <td>${escapeHtml(r.binance_order_id || r.okx_order_id || "-")}</td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="8">no filled trades</td></tr>';
+        </tr>`).join("") : '<tr><td class="empty" colspan="9">no filled trades</td></tr>';
     }
     function sidePill(side) {
       const s = escapeHtml(side || "-");
@@ -634,18 +754,25 @@
       const cls = /reject|cancel|fail|bad|expired/i.test(s) ? "bad" : /queue|pending|watch|sim/i.test(s) ? "warn" : "ok";
       return `<span class="pill ${cls}">${s}</span>`;
     }
+    function decisionPill(decision) {
+      const d = escapeHtml(decision || "collecting");
+      const cls = /blocked/i.test(d) ? "bad" : /reduced|collect/i.test(d) ? "warn" : "ok";
+      return `<span class="pill ${cls}">${d}</span>`;
+    }
     async function refresh() {
       try {
         $("connection").textContent = "sync";
-        const [status, guard, queue, plans, trades] = await Promise.all([
+        const [status, guard, perf, queue, plans, trades] = await Promise.all([
           getJson("/status"),
           getJson("/market-guard"),
+          getJson("/performance"),
           getJson("/queue"),
           getJson("/trade-plans"),
           getJson("/trades"),
         ]);
         renderStatus(status);
         renderGuard(guard);
+        renderPerformance(perf);
         renderQueue(Array.isArray(queue) ? queue : []);
         renderPlans(Array.isArray(plans) ? plans : []);
         renderTrades(Array.isArray(trades) ? trades : []);

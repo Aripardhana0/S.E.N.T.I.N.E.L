@@ -26,13 +26,14 @@ adalah Binance Demo Futures dari `demo.binance.com`, bukan akun live.
 2. Strategy mencari setup setiap 15 menit.
 3. Market Guard mengecek kondisi buruk sebelum entry.
 4. Risk Manager deterministik menjadi gerbang utama.
-5. AI Reviewer hanya dipanggil setelah guard dan risk lolos.
-6. Jika AI tidak `reject` dan `AUTO_ENTRY=true`, sistem memasang LIMIT order.
-7. Market Guard berjalan tiap 60 detik dan membatalkan semua antrian pending saat
+5. Learning Guard mengecek performa setup dari closed trade historis.
+6. AI Reviewer hanya dipanggil setelah guard dan risk lolos.
+7. Jika AI tidak `reject` dan `AUTO_ENTRY=true`, sistem memasang LIMIT order.
+8. Market Guard berjalan tiap 60 detik dan membatalkan semua antrian pending saat
    kondisi market buruk.
-8. Sync fills berjalan tiap 60 detik untuk menandai order `FILLED`.
+9. Sync fills berjalan tiap 60 detik untuk menandai order `FILLED`.
 
-Urutan prioritas: Market Guard dan Risk Manager selalu di atas AI.
+Urutan prioritas: Market Guard, Learning Guard, dan Risk Manager selalu di atas AI.
 
 ## Environment
 
@@ -73,6 +74,41 @@ MAX_TRADES_PER_DAY=3
 MAX_CONSECUTIVE_LOSS=2
 MAX_LEVERAGE=2
 MIN_RR=1.5
+
+LEARNING_ENABLED=true
+LEARNING_LOOKBACK_DAYS=30
+LEARNING_MIN_TRADES=6
+LEARNING_BLOCK_WINRATE=0.35
+LEARNING_REDUCE_WINRATE=0.45
+LEARNING_BLOCK_LOSS_STREAK=3
+LEARNING_RISK_MULTIPLIER=0.5
+LEARNING_RR_BUFFER=0.25
+```
+
+## Learning Guard
+
+Learning Guard bukan model ML dan tidak melatih AI. Sistem ini membaca trade yang
+sudah `closed` dan punya `pnl`, lalu memakai aturan deterministik:
+
+- Minimal `LEARNING_MIN_TRADES` closed trade sebelum blok winrate aktif.
+- Setup diblok jika winrate <= `LEARNING_BLOCK_WINRATE`.
+- Setup diblok jika loss streak >= `LEARNING_BLOCK_LOSS_STREAK`.
+- Jika winrate < `LEARNING_REDUCE_WINRATE`, risk dikurangi ke
+  `LEARNING_RISK_MULTIPLIER` dan minimum RR dinaikkan sebesar
+  `LEARNING_RR_BUFFER`.
+- Risk tidak pernah dinaikkan otomatis melebihi `MAX_RISK_PER_TRADE`.
+
+Untuk membuat data pembelajaran, trade harus ditutup dan punya PnL. Kalau belum
+ada auto close, catat manual lewat API:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/trades/1/close?exit_price=62000"
+```
+
+Atau langsung isi PnL:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/trades/1/close?pnl=0.12"
 ```
 
 ## Quick Start
@@ -107,6 +143,8 @@ GUARD_ENABLED=true
 | `/last-signal` | GET | Sinyal terakhir |
 | `/trade-plans` | GET | Daftar trade plan |
 | `/trades` | GET | Daftar trade |
+| `/trades/{id}/close` | POST | Tutup trade manual dan catat PnL |
+| `/performance` | GET | Winrate, setup performance, daily evaluation |
 | `/market-guard` | GET | Evaluasi market guard saat ini |
 | `/queue` | GET | Daftar antrian aktif |
 | `/cancel-all` | POST | Panic button cancel semua antrian |
@@ -121,7 +159,17 @@ Branch `auto` menambah kolom non-destruktif:
 ```text
 trade_plans.binance_order_id
 trade_plans.queued_at
+trade_plans.ai_risk_notes
+trade_plans.setup_key
+trade_plans.setup_type
+trade_plans.learning_decision
+trade_plans.learning_notes
+trade_plans.risk_multiplier
+trade_plans.adaptive_min_rr
 trades.binance_order_id
+trades.setup_key
+trades.setup_type
+daily_reviews
 ```
 
 Migrasi berjalan saat startup setelah `init_db()`.

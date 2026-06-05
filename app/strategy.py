@@ -50,6 +50,9 @@ def generate_signal() -> dict | None:
     setup = {
         "symbol": config.SYMBOL,
         "side": "short",
+        "setup_type": "downtrend_pullback",
+        "timeframe_signal": config.TIMEFRAME_SIGNAL,
+        "timeframe_trend": config.TIMEFRAME_TREND,
         "entry": entry,
         "stop_loss": stop_loss,
         "take_profit": take_profit,

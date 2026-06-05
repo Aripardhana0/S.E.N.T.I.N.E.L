@@ -75,6 +75,16 @@ class Config:
     MAX_LEVERAGE = _get_int("MAX_LEVERAGE", 2)
     MIN_RR = _get_float("MIN_RR", 1.5)
 
+    # --- Learning / performance guard ---
+    LEARNING_ENABLED = _get_bool("LEARNING_ENABLED", True)
+    LEARNING_LOOKBACK_DAYS = _get_int("LEARNING_LOOKBACK_DAYS", 30)
+    LEARNING_MIN_TRADES = _get_int("LEARNING_MIN_TRADES", 6)
+    LEARNING_BLOCK_WINRATE = _get_float("LEARNING_BLOCK_WINRATE", 0.35)
+    LEARNING_REDUCE_WINRATE = _get_float("LEARNING_REDUCE_WINRATE", 0.45)
+    LEARNING_BLOCK_LOSS_STREAK = _get_int("LEARNING_BLOCK_LOSS_STREAK", 3)
+    LEARNING_RISK_MULTIPLIER = _get_float("LEARNING_RISK_MULTIPLIER", 0.5)
+    LEARNING_RR_BUFFER = _get_float("LEARNING_RR_BUFFER", 0.25)
+
     # --- Database ---
     DB_PATH = os.getenv("DB_PATH", "data/trading.db")
 

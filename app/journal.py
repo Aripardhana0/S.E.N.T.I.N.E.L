@@ -4,6 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.database import get_conn
+from app.performance import setup_identity
 
 logger = logging.getLogger("journal")
 
@@ -21,20 +22,26 @@ def log_event(level: str, message: str):
         )
 
 def save_trade_plan(setup: dict, risk: dict, ai: dict, status: str) -> int:
+    setup_type, setup_key = setup_identity(setup)
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO trade_plans
                (created_at, symbol, side, entry, stop_loss, take_profit,
                 risk_reward, risk_amount, position_size, status,
                 risk_allowed, risk_reason, ai_verdict, ai_reason,
-                ai_confidence, raw_payload)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                ai_confidence, ai_risk_notes, setup_key, setup_type,
+                learning_decision, learning_notes, risk_multiplier,
+                adaptive_min_rr, raw_payload)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 _now(), setup["symbol"], setup["side"], setup["entry"],
                 setup["stop_loss"], setup["take_profit"], risk["risk_reward"],
                 risk["risk_amount"], risk["position_size"], status,
                 1 if risk["allowed"] else 0, risk["reason"],
                 ai.get("verdict"), ai.get("reason"), ai.get("confidence"),
+                ai.get("risk_notes"), setup_key, setup_type,
+                risk.get("learning_decision"), risk.get("learning_notes"),
+                risk.get("risk_multiplier"), risk.get("adaptive_min_rr"),
                 json.dumps({"setup": setup, "risk": risk, "ai": ai}),
             ),
         )
@@ -89,21 +96,24 @@ def get_last_signal() -> dict | None:
 
 def save_trade(trade_plan_id: int, setup: dict, size: float,
                mode: str, order_id: str | None) -> int:
+    setup_type, setup_key = setup_identity(setup)
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO trades
                (trade_plan_id, opened_at, symbol, side, entry, size,
-                status, mode, okx_order_id, binance_order_id)
-               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                status, mode, okx_order_id, binance_order_id,
+                setup_key, setup_type)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 trade_plan_id, _now(), setup["symbol"], setup["side"],
                 setup["entry"], size, "open", mode,
                 None,
                 order_id if mode == "BINANCE_DEMO" else None,
+                setup_key, setup_type,
             ),
         )
         # Naikkan counter trade harian.
-        _bump_daily_trades()
+        _bump_daily_trades_conn(conn)
         return cur.lastrowid
 
 def list_trades(limit: int = 20) -> list:
@@ -112,6 +122,44 @@ def list_trades(limit: int = 20) -> list:
             "SELECT * FROM trades ORDER BY id DESC LIMIT ?", (limit,)
         ).fetchall()
         return [dict(r) for r in rows]
+
+def close_trade(trade_id: int, exit_price: float | None = None,
+                pnl: float | None = None) -> dict | None:
+    """Close trade manually and record realized PnL for learning analytics."""
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
+        if not row:
+            return None
+        trade = dict(row)
+        if trade.get("closed_at"):
+            raise ValueError("Trade sudah closed.")
+
+        if pnl is None:
+            if exit_price is None:
+                raise ValueError("Isi exit_price atau pnl.")
+            entry = float(trade["entry"])
+            size = float(trade["size"])
+            if trade["side"] == "short":
+                pnl = (entry - float(exit_price)) * size
+            else:
+                pnl = (float(exit_price) - entry) * size
+        elif exit_price is None:
+            exit_price = trade.get("exit")
+
+        pnl = round(float(pnl), 8)
+        status = "closed_win" if pnl > 0 else "closed_loss" if pnl < 0 else "closed_flat"
+        closed_at = _now()
+        conn.execute(
+            """
+            UPDATE trades
+            SET closed_at=?, exit=?, pnl=?, status=?
+            WHERE id=?
+            """,
+            (closed_at, exit_price, pnl, status, trade_id),
+        )
+        _apply_daily_close(conn, pnl)
+        updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
+        return dict(updated)
 
 def get_today_stats() -> dict:
     day = _today()
@@ -128,8 +176,30 @@ def get_today_stats() -> dict:
 def _bump_daily_trades():
     day = _today()
     with get_conn() as conn:
-        conn.execute("INSERT OR IGNORE INTO daily_stats (day) VALUES (?)", (day,))
+        _bump_daily_trades_conn(conn)
+
+def _bump_daily_trades_conn(conn):
+    day = _today()
+    conn.execute("INSERT OR IGNORE INTO daily_stats (day) VALUES (?)", (day,))
+    conn.execute(
+        "UPDATE daily_stats SET trades_count = trades_count + 1 WHERE day=?",
+        (day,),
+    )
+
+def _apply_daily_close(conn, pnl: float):
+    day = _today()
+    conn.execute("INSERT OR IGNORE INTO daily_stats (day) VALUES (?)", (day,))
+    conn.execute(
+        "UPDATE daily_stats SET realized_pnl = realized_pnl + ? WHERE day=?",
+        (pnl, day),
+    )
+    if pnl < 0:
         conn.execute(
-            "UPDATE daily_stats SET trades_count = trades_count + 1 WHERE day=?",
+            "UPDATE daily_stats SET consecutive_loss = consecutive_loss + 1 WHERE day=?",
+            (day,),
+        )
+    elif pnl > 0:
+        conn.execute(
+            "UPDATE daily_stats SET consecutive_loss = 0 WHERE day=?",
             (day,),
         )

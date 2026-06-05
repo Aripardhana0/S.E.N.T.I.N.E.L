@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 
-from app import journal, market_data, market_guard, order_queue, telegram_bot
+from app import journal, market_data, market_guard, order_queue, performance, telegram_bot
 from app.config import config
 from app.database import init_db, migrate_brach_auto
 from app.executor import current_mode, execute_plan
@@ -100,6 +100,23 @@ def trade_plans():
 @app.get("/trades")
 def trades():
     return journal.list_trades()
+
+
+@app.post("/trades/{trade_id}/close")
+def close_trade(trade_id: int, exit_price: float | None = None,
+                pnl: float | None = None):
+    try:
+        trade = journal.close_trade(trade_id, exit_price=exit_price, pnl=pnl)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade tidak ditemukan.")
+    return {"ok": True, "trade": trade}
+
+
+@app.get("/performance")
+def performance_status():
+    return performance.build_performance_dashboard()
 
 
 @app.get("/market-guard")

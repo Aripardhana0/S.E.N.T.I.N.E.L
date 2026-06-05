@@ -18,6 +18,7 @@ def _plan_to_setup(plan: dict) -> dict:
         "entry": plan["entry"],
         "stop_loss": plan["stop_loss"],
         "take_profit": plan["take_profit"],
+        "setup_type": plan.get("setup_type"),
     }
 
 

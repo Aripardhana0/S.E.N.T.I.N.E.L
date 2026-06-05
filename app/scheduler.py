@@ -9,6 +9,7 @@ from app import (
     market_data,
     market_guard,
     order_queue,
+    performance,
     risk_manager,
     strategy,
     telegram_bot,
@@ -100,9 +101,13 @@ async def _job_sync_fills():
 
 async def _job_daily_report():
     stats = journal.get_today_stats()
+    evaluation = performance.build_daily_evaluation(stats["day"], persist=True)
+    recommendations = "\n".join(f"- {item}" for item in evaluation["recommendations"])
     await telegram_bot.send_message(
         f"Daily Report ({stats['day']})\n"
-        f"Trades: {stats['trades_count']} | PnL: {stats['realized_pnl']}"
+        f"Trades: {stats['trades_count']} | PnL: {stats['realized_pnl']}\n"
+        f"Closed: {evaluation['closed_trades']} | Winrate: {evaluation['winrate']}%\n"
+        f"Review:\n{recommendations}"
     )
 
 
