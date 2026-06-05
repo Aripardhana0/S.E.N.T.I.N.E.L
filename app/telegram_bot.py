@@ -10,7 +10,7 @@ from telegram.ext import (
 from app.config import config
 from app import journal
 from app.executor import execute_plan, current_mode
-from app.okx_client import okx_client
+from app.binance_client import binance_client
 
 logger = logging.getLogger("telegram_bot")
 
@@ -60,13 +60,13 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     )
 
 async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    bal = okx_client.get_balance()
+    bal = binance_client.get_balance()
     if not bal:
         await update.message.reply_text(
             f"Balance tidak tersedia. Equity awal (config): {config.INITIAL_EQUITY}"
         )
         return
-    await update.message.reply_text(f"Balance OKX (demo): {bal}")
+    await update.message.reply_text(f"Balance Binance Futures Testnet: {bal}")
 
 async def cmd_last_signal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     sig = journal.get_last_signal()

@@ -18,13 +18,14 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["ema20"] = EMAIndicator(close=df["close"], window=20).ema_indicator()
     df["ema50"] = EMAIndicator(close=df["close"], window=50).ema_indicator()
     df["rsi14"] = RSIIndicator(close=df["close"], window=14).rsi()
-    df["atr"] = AverageTrueRange(
+    df["atr14"] = AverageTrueRange(
         high=df["high"], low=df["low"], close=df["close"], window=14
     ).average_true_range()
+    df["vol_ma20"] = df["volume"].rolling(window=20).mean()
     return df
 
 def is_downtrend(df: pd.DataFrame) -> bool:
-    """Trend bearish bila EMA20(1H) < EMA50(1H) di candle terakhir."""
+    """Trend bearish bila EMA20(1h) < EMA50(1h) di candle terakhir."""
     if df is None or df.empty:
         return False
     last = df.iloc[-1]

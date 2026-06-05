@@ -48,6 +48,7 @@ def init_db():
                 status TEXT,
                 risk_allowed INTEGER, risk_reason TEXT,
                 ai_verdict TEXT, ai_reason TEXT, ai_confidence TEXT,
+                binance_order_id TEXT, queued_at TEXT,
                 raw_payload TEXT
             );
 
@@ -57,7 +58,7 @@ def init_db():
                 opened_at TEXT, closed_at TEXT,
                 symbol TEXT, side TEXT,
                 entry REAL, exit REAL, size REAL, pnl REAL,
-                status TEXT, mode TEXT, okx_order_id TEXT
+                status TEXT, mode TEXT, okx_order_id TEXT, binance_order_id TEXT
             );
 
             CREATE TABLE IF NOT EXISTS daily_stats (
@@ -77,3 +78,23 @@ def init_db():
             """
         )
     logger.info("Database siap di %s", config.DB_PATH)
+
+def migrate_brach_auto():
+    """Migrasi non-destruktif untuk branch auto."""
+    with get_conn() as conn:
+        cols = [
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(trade_plans)").fetchall()
+        ]
+        if "binance_order_id" not in cols:
+            conn.execute("ALTER TABLE trade_plans ADD COLUMN binance_order_id TEXT")
+        if "queued_at" not in cols:
+            conn.execute("ALTER TABLE trade_plans ADD COLUMN queued_at TEXT")
+
+        trade_cols = [
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(trades)").fetchall()
+        ]
+        if "binance_order_id" not in trade_cols:
+            conn.execute("ALTER TABLE trades ADD COLUMN binance_order_id TEXT")
+    logger.info("Migrasi branch auto selesai.")

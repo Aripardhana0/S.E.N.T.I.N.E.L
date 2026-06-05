@@ -46,6 +46,14 @@ def update_trade_plan_status(plan_id: int, status: str):
             "UPDATE trade_plans SET status=? WHERE id=?", (status, plan_id)
         )
 
+def set_order_id(plan_id: int, order_id: str):
+    """Simpan id order exchange dan waktu mulai antre."""
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE trade_plans SET binance_order_id=?, queued_at=? WHERE id=?",
+            (order_id, _now(), plan_id),
+        )
+
 def get_trade_plan(plan_id: int) -> dict | None:
     with get_conn() as conn:
         row = conn.execute(
@@ -60,6 +68,18 @@ def list_trade_plans(limit: int = 20) -> list:
         ).fetchall()
         return [dict(r) for r in rows]
 
+def list_plans_by_status(statuses: list) -> list:
+    if not statuses:
+        return []
+    placeholders = ",".join(["?"] * len(statuses))
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM trade_plans WHERE status IN ({placeholders}) "
+            "ORDER BY id DESC",
+            statuses,
+        ).fetchall()
+        return [dict(r) for r in rows]
+
 def get_last_signal() -> dict | None:
     with get_conn() as conn:
         row = conn.execute(
@@ -68,16 +88,18 @@ def get_last_signal() -> dict | None:
         return dict(row) if row else None
 
 def save_trade(trade_plan_id: int, setup: dict, size: float,
-               mode: str, okx_order_id: str | None) -> int:
+               mode: str, order_id: str | None) -> int:
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO trades
                (trade_plan_id, opened_at, symbol, side, entry, size,
-                status, mode, okx_order_id)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
+                status, mode, okx_order_id, binance_order_id)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
             (
                 trade_plan_id, _now(), setup["symbol"], setup["side"],
-                setup["entry"], size, "open", mode, okx_order_id,
+                setup["entry"], size, "open", mode,
+                None,
+                order_id if mode == "BINANCE_DEMO" else None,
             ),
         )
         # Naikkan counter trade harian.

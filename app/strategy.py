@@ -18,9 +18,9 @@ def generate_signal() -> dict | None:
         logger.debug("Skip: data belum cukup (trend atau signal).")
         return None
 
-    # Cek downtrend di timeframe 1H.
+    # Cek downtrend di timeframe 1h.
     if not is_downtrend(df_trend):
-        logger.debug("Skip: tidak downtrend di 1H.")
+        logger.debug("Skip: tidak downtrend di 1h.")
         return None
 
     # Cek setup pullback short di 15m.

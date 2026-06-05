@@ -34,12 +34,23 @@ class Config:
     EXECUTION_ENABLED = _get_bool("EXECUTION_ENABLED", False)
     REQUIRE_MANUAL_APPROVAL = _get_bool("REQUIRE_MANUAL_APPROVAL", True)
 
-    # --- OKX ---
-    OKX_API_KEY = os.getenv("OKX_API_KEY", "")
-    OKX_API_SECRET = os.getenv("OKX_API_SECRET", "")
-    OKX_API_PASSPHRASE = os.getenv("OKX_API_PASSPHRASE", "")
-    OKX_DEMO_TRADING = _get_bool("OKX_DEMO_TRADING", True)
-    OKX_BASE_URL = "https://www.okx.com"
+    # --- Auto entry & Market Guard ---
+    AUTO_ENTRY = _get_bool("AUTO_ENTRY", True)
+    GUARD_ENABLED = _get_bool("GUARD_ENABLED", True)
+    GUARD_ATR_SPIKE = _get_float("GUARD_ATR_SPIKE", 1.8)
+    GUARD_VOL_SPIKE = _get_float("GUARD_VOL_SPIKE", 3.0)
+    GUARD_RANGE_ATR = _get_float("GUARD_RANGE_ATR", 2.5)
+    GUARD_MOVE_PCT = _get_float("GUARD_MOVE_PCT", 1.5)
+
+    # --- Binance Futures Testnet ---
+    BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
+    BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
+    BINANCE_DEMO_TRADING = _get_bool("BINANCE_DEMO_TRADING", True)
+    BINANCE_BASE_URL = os.getenv(
+        "BINANCE_BASE_URL", "https://testnet.binancefuture.com"
+    )
+    PRICE_PRECISION = _get_int("PRICE_PRECISION", 1)
+    QTY_PRECISION = _get_int("QTY_PRECISION", 3)
 
     # --- OpenRouter ---
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
@@ -51,9 +62,9 @@ class Config:
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
     # --- Market / strategy ---
-    SYMBOL = os.getenv("SYMBOL", "BTC-USDT")
+    SYMBOL = os.getenv("SYMBOL", "BTCUSDT")
     TIMEFRAME_SIGNAL = os.getenv("TIMEFRAME_SIGNAL", "15m")
-    TIMEFRAME_TREND = os.getenv("TIMEFRAME_TREND", "1H")
+    TIMEFRAME_TREND = os.getenv("TIMEFRAME_TREND", "1h")
 
     # --- Risk ---
     INITIAL_EQUITY = _get_float("INITIAL_EQUITY", 5)
@@ -67,8 +78,8 @@ class Config:
     # --- Database ---
     DB_PATH = os.getenv("DB_PATH", "data/trading.db")
 
-    def has_okx_credentials(self) -> bool:
-        return all([self.OKX_API_KEY, self.OKX_API_SECRET, self.OKX_API_PASSPHRASE])
+    def has_binance_credentials(self) -> bool:
+        return all([self.BINANCE_API_KEY, self.BINANCE_API_SECRET])
 
     def has_telegram(self) -> bool:
         return bool(self.TELEGRAM_BOT_TOKEN and self.TELEGRAM_CHAT_ID)
