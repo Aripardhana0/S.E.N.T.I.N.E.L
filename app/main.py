@@ -3,7 +3,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
 from app import journal, market_data, market_guard, order_queue, performance, telegram_bot
@@ -56,6 +56,19 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="BTC Demo Trading AI Agent - Auto", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def log_http_errors(request: Request, call_next):
+    response = await call_next(request)
+    if response.status_code >= 400:
+        logger.warning(
+            "HTTP %s %s -> %s",
+            request.method,
+            request.url.path,
+            response.status_code,
+        )
+    return response
 
 
 @app.get("/")
