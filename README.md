@@ -5,7 +5,7 @@ AI-assisted trading agent untuk **belajar & demo/paper trading** BTC-USDT di OKX
 
 ## Disclaimer
 
-⚠️ **Sistem ini dibuat untuk belajar & demo/paper trading saja**. Bukan nasihat finansial. Default-nya tidak melakukan live trading. Jangan pernah aktifkan eksekusi uang nyata tanpa audit menyeluruh dan pemahaman penuh atas risikonya.
+⚠️ **Sistem ini dibuat untuk belajar & demo/paper trading saja**. Not Financial Advicer. Default-nya tidak melakukan live trading. Jangan pernah aktifkan eksekusi uang nyata tanpa audit menyeluruh dan pemahaman penuh atas risikonya.
 
 ## Cara Kerja Singkat
 
