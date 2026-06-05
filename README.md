@@ -1,7 +1,7 @@
 # BTC Demo Trading AI Agent - Auto
 
 AI-assisted trading agent untuk belajar dan demo/paper trading BTCUSDT di
-Binance USD-M Futures Testnet. Branch `auto` menambahkan auto entry LIMIT order,
+Binance Demo USD-M Futures. Branch `auto` menambahkan auto entry LIMIT order,
 market guard deterministik, cancel semua antrian pending saat market buruk, dan
 sync fill berkala. Bukan nasihat finansial.
 
@@ -18,7 +18,7 @@ GUARD_ENABLED=true
 ```
 
 Jangan gunakan API live tanpa audit penuh. Kredensial yang dimaksud di branch ini
-adalah Binance Futures Testnet, bukan akun live.
+adalah Binance Demo Futures dari `demo.binance.com`, bukan akun live.
 
 ## Cara Kerja
 
@@ -52,7 +52,7 @@ GUARD_MOVE_PCT=1.5
 BINANCE_API_KEY=
 BINANCE_API_SECRET=
 BINANCE_DEMO_TRADING=true
-BINANCE_BASE_URL=https://testnet.binancefuture.com
+BINANCE_BASE_URL=https://demo-fapi.binance.com
 PRICE_PRECISION=1
 QTY_PRECISION=3
 

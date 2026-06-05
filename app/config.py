@@ -42,12 +42,12 @@ class Config:
     GUARD_RANGE_ATR = _get_float("GUARD_RANGE_ATR", 2.5)
     GUARD_MOVE_PCT = _get_float("GUARD_MOVE_PCT", 1.5)
 
-    # --- Binance Futures Testnet ---
+    # --- Binance Demo Futures ---
     BINANCE_API_KEY = os.getenv("BINANCE_API_KEY", "")
     BINANCE_API_SECRET = os.getenv("BINANCE_API_SECRET", "")
     BINANCE_DEMO_TRADING = _get_bool("BINANCE_DEMO_TRADING", True)
     BINANCE_BASE_URL = os.getenv(
-        "BINANCE_BASE_URL", "https://testnet.binancefuture.com"
+        "BINANCE_BASE_URL", "https://demo-fapi.binance.com"
     )
     PRICE_PRECISION = _get_int("PRICE_PRECISION", 1)
     QTY_PRECISION = _get_int("QTY_PRECISION", 3)
