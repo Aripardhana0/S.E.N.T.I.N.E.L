@@ -6,7 +6,15 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
-from app import journal, market_data, market_guard, order_queue, performance, telegram_bot
+from app import (
+    journal,
+    market_data,
+    market_guard,
+    order_queue,
+    performance,
+    position_manager,
+    telegram_bot,
+)
 from app.config import config
 from app.database import init_db, migrate_brach_auto
 from app.executor import current_mode, execute_plan
@@ -117,9 +125,11 @@ def trades():
 
 @app.post("/trades/{trade_id}/close")
 def close_trade(trade_id: int, exit_price: float | None = None,
-                pnl: float | None = None):
+                pnl: float | None = None, exit_reason: str = "manual"):
     try:
-        trade = journal.close_trade(trade_id, exit_price=exit_price, pnl=pnl)
+        trade = journal.close_trade(
+            trade_id, exit_price=exit_price, pnl=pnl, exit_reason=exit_reason
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not trade:
@@ -142,6 +152,11 @@ def queue():
     return order_queue.list_active_queue()
 
 
+@app.get("/positions")
+def positions():
+    return position_manager.local_open_positions()
+
+
 @app.post("/cancel-all")
 def cancel_all():
     return order_queue.cancel_all_pending(reason="manual via API")
@@ -149,7 +164,11 @@ def cancel_all():
 
 @app.post("/sync-fills")
 def sync_fills_now():
-    return order_queue.sync_fills()
+    return {
+        "exchange": order_queue.sync_fills(),
+        "simulated": position_manager.sync_simulated_entries(),
+        "exits": position_manager.sync_exits(),
+    }
 
 
 @app.post("/approve/{trade_plan_id}")

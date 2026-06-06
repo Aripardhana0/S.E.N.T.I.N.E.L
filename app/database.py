@@ -61,9 +61,11 @@ def init_db():
                 trade_plan_id INTEGER,
                 opened_at TEXT, closed_at TEXT,
                 symbol TEXT, side TEXT,
-                entry REAL, exit REAL, size REAL, pnl REAL,
+                entry REAL, stop_loss REAL, take_profit REAL,
+                exit REAL, size REAL, pnl REAL,
                 status TEXT, mode TEXT, okx_order_id TEXT, binance_order_id TEXT,
-                setup_key TEXT, setup_type TEXT
+                setup_key TEXT, setup_type TEXT,
+                exit_reason TEXT, close_order_id TEXT
             );
 
             CREATE TABLE IF NOT EXISTS daily_stats (
@@ -129,6 +131,14 @@ def migrate_brach_auto():
             conn.execute("ALTER TABLE trades ADD COLUMN setup_key TEXT")
         if "setup_type" not in trade_cols:
             conn.execute("ALTER TABLE trades ADD COLUMN setup_type TEXT")
+        if "stop_loss" not in trade_cols:
+            conn.execute("ALTER TABLE trades ADD COLUMN stop_loss REAL")
+        if "take_profit" not in trade_cols:
+            conn.execute("ALTER TABLE trades ADD COLUMN take_profit REAL")
+        if "exit_reason" not in trade_cols:
+            conn.execute("ALTER TABLE trades ADD COLUMN exit_reason TEXT")
+        if "close_order_id" not in trade_cols:
+            conn.execute("ALTER TABLE trades ADD COLUMN close_order_id TEXT")
 
         conn.execute(
             """

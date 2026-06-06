@@ -535,7 +535,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">size</th><th class="num">pnl</th><th>status</th><th>order</th></tr>
+              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">tp</th><th class="num">sl</th><th class="num">exit</th><th class="num">pnl</th><th>status</th><th>reason</th></tr>
             </thead>
             <tbody id="tradeRows"></tbody>
           </table>
@@ -741,11 +741,13 @@
           <td>${escapeHtml(clip(r.setup_type || "-", 22))}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
-          <td class="num">${fmt(r.size, 6)}</td>
+          <td class="num">${fmt(r.take_profit, 4)}</td>
+          <td class="num">${fmt(r.stop_loss, 4)}</td>
+          <td class="num">${fmt(r.exit, 4)}</td>
           <td class="num">${fmt(r.pnl, 8)}</td>
           <td>${statusPill(r.status)}</td>
-          <td>${escapeHtml(r.binance_order_id || r.okx_order_id || "-")}</td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="9">no filled trades</td></tr>';
+          <td>${escapeHtml(r.exit_reason || r.binance_order_id || r.okx_order_id || "-")}</td>
+        </tr>`).join("") : '<tr><td class="empty" colspan="11">no filled trades</td></tr>';
     }
     function sidePill(side) {
       const s = escapeHtml(side || "-");
@@ -797,7 +799,12 @@
     $("syncBtn").addEventListener("click", async () => {
       try {
         const res = await postJson("/sync-fills");
-        toast(`sync checked ${res.checked ?? 0}; filled ${res.filled ?? 0}`);
+        const filled = Number(res.filled ?? 0)
+          || Number(res.exchange?.filled ?? 0) + Number(res.simulated?.filled ?? 0);
+        const checked = Number(res.checked ?? 0)
+          || Number(res.exchange?.checked ?? 0) + Number(res.simulated?.checked ?? 0);
+        const closed = Number(res.exits?.closed ?? 0);
+        toast(`sync checked ${checked}; filled ${filled}; closed ${closed}`);
         refresh();
       } catch (err) { toast(err.message || String(err)); }
     });

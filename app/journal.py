@@ -100,13 +100,15 @@ def save_trade(trade_plan_id: int, setup: dict, size: float,
     with get_conn() as conn:
         cur = conn.execute(
             """INSERT INTO trades
-               (trade_plan_id, opened_at, symbol, side, entry, size,
+               (trade_plan_id, opened_at, symbol, side, entry,
+                stop_loss, take_profit, size,
                 status, mode, okx_order_id, binance_order_id,
                 setup_key, setup_type)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 trade_plan_id, _now(), setup["symbol"], setup["side"],
-                setup["entry"], size, "open", mode,
+                setup["entry"], setup.get("stop_loss"), setup.get("take_profit"),
+                size, "open", mode,
                 None,
                 order_id if mode == "BINANCE_DEMO" else None,
                 setup_key, setup_type,
@@ -123,8 +125,34 @@ def list_trades(limit: int = 20) -> list:
         ).fetchall()
         return [dict(r) for r in rows]
 
+def list_open_trades() -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                t.*,
+                tp.stop_loss AS plan_stop_loss,
+                tp.take_profit AS plan_take_profit
+            FROM trades t
+            LEFT JOIN trade_plans tp ON tp.id = t.trade_plan_id
+            WHERE t.status = 'open'
+              AND t.closed_at IS NULL
+            ORDER BY t.id ASC
+            """
+        ).fetchall()
+    result = []
+    for row in rows:
+        item = dict(row)
+        if item.get("stop_loss") is None:
+            item["stop_loss"] = item.get("plan_stop_loss")
+        if item.get("take_profit") is None:
+            item["take_profit"] = item.get("plan_take_profit")
+        result.append(item)
+    return result
+
 def close_trade(trade_id: int, exit_price: float | None = None,
-                pnl: float | None = None) -> dict | None:
+                pnl: float | None = None, exit_reason: str = "manual",
+                close_order_id: str | None = None) -> dict | None:
     """Close trade manually and record realized PnL for learning analytics."""
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
@@ -152,10 +180,11 @@ def close_trade(trade_id: int, exit_price: float | None = None,
         conn.execute(
             """
             UPDATE trades
-            SET closed_at=?, exit=?, pnl=?, status=?
+            SET closed_at=?, exit=?, pnl=?, status=?,
+                exit_reason=?, close_order_id=?
             WHERE id=?
             """,
-            (closed_at, exit_price, pnl, status, trade_id),
+            (closed_at, exit_price, pnl, status, exit_reason, close_order_id, trade_id),
         )
         _apply_daily_close(conn, pnl)
         updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()

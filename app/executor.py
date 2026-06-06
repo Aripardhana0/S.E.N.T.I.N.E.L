@@ -39,6 +39,7 @@ def execute_plan(plan_id: int) -> dict:
         "entry": plan["entry"],
         "stop_loss": plan["stop_loss"],
         "take_profit": plan["take_profit"],
+        "setup_type": plan.get("setup_type"),
     }
     mode = current_mode()
 

@@ -69,17 +69,24 @@ def cancel_all_pending(reason: str = "market guard") -> dict:
     active = journal.list_plans_by_status(list(ACTIVE_STATUSES))
     mode = current_mode()
 
-    if mode == "BINANCE_DEMO" and active:
-        binance_client.cancel_all_open_orders(config.SYMBOL)
-
     canceled = 0
+    skipped = 0
     for plan in active:
+        if plan.get("setup_type") == "manual_telegram_force":
+            journal.log_event(
+                "INFO",
+                f"Plan {plan['id']} tidak dibatalkan oleh guard karena force entry.",
+            )
+            skipped += 1
+            continue
+        if mode == "BINANCE_DEMO" and plan.get("binance_order_id"):
+            binance_client.cancel_order(config.SYMBOL, plan["binance_order_id"])
         journal.update_trade_plan_status(plan["id"], "canceled_market_guard")
         journal.log_event("INFO", f"Plan {plan['id']} dibatalkan ({reason}).")
         canceled += 1
     if canceled:
         logger.warning("Cancel %s antrian. Alasan: %s", canceled, reason)
-    return {"ok": True, "canceled": canceled, "reason": reason}
+    return {"ok": True, "canceled": canceled, "skipped_force": skipped, "reason": reason}
 
 
 def sync_fills() -> dict:

@@ -307,7 +307,7 @@ def build_daily_evaluation(day: str | None = None, persist: bool = False) -> dic
                 COUNT(id) AS total,
                 SUM(CASE WHEN status LIKE 'rejected%' THEN 1 ELSE 0 END) AS rejected,
                 SUM(CASE WHEN status IN ('queued', 'queued_sim') THEN 1 ELSE 0 END) AS queued,
-                SUM(CASE WHEN status = 'filled' THEN 1 ELSE 0 END) AS filled
+                SUM(CASE WHEN status IN ('filled', 'filled_sim') THEN 1 ELSE 0 END) AS filled
             FROM trade_plans
             WHERE created_at LIKE ?
             """,

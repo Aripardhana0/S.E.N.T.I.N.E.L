@@ -32,6 +32,8 @@ adalah Binance Demo Futures dari `demo.binance.com`, bukan akun live.
 8. Market Guard berjalan tiap 60 detik dan membatalkan semua antrian pending saat
    kondisi market buruk.
 9. Sync fills berjalan tiap 60 detik untuk menandai order `FILLED`.
+10. Position Manager memantau trade open dan menutupnya saat TP/SL tersentuh,
+    lalu mencatat `pnl`, `closed_at`, dan win/loss.
 
 Urutan prioritas: Market Guard, Learning Guard, dan Risk Manager selalu di atas AI.
 
@@ -149,8 +151,32 @@ GUARD_ENABLED=true
 | `/queue` | GET | Daftar antrian aktif |
 | `/cancel-all` | POST | Panic button cancel semua antrian |
 | `/sync-fills` | POST | Paksa sync status order |
+| `/positions` | GET | Daftar posisi lokal yang masih open |
 | `/approve/{id}` | POST | Approval manual legacy untuk DRY_RUN/PAPER |
 | `/reject/{id}` | POST | Reject trade plan |
+
+## Telegram Commands
+
+| Command | Deskripsi |
+| --- | --- |
+| `/status` | Ringkasan mode, guard, queue, learning, dan sinyal terakhir |
+| `/market` | Harga, trend, RSI/ATR, dan market guard |
+| `/positions` | Posisi lokal open dan posisi Binance Demo jika aktif |
+| `/entry short ENTRY SL TP` | Buat entry manual short lewat Telegram |
+| `/entry long ENTRY SL TP` | Buat entry manual long lewat Telegram |
+| `/force_entry short ENTRY SL TP` | Buat entry manual yang melewati market guard, risk tetap dicek |
+| `/balance` | Balance Binance Demo/Testnet |
+| `/daily_report` | Ringkasan harian |
+
+Contoh:
+
+```text
+/entry short 62500 63000 61500
+/entry long 62500 62000 63500
+```
+
+Entry manual tetap melewati risk manager. `/force_entry` melewati market guard
+dan tidak ikut dibatalkan job guard, tapi tidak melewati risk manager.
 
 ## Database
 
@@ -169,6 +195,10 @@ trade_plans.adaptive_min_rr
 trades.binance_order_id
 trades.setup_key
 trades.setup_type
+trades.stop_loss
+trades.take_profit
+trades.exit_reason
+trades.close_order_id
 daily_reviews
 ```
 

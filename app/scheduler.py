@@ -10,6 +10,7 @@ from app import (
     market_guard,
     order_queue,
     performance,
+    position_manager,
     risk_manager,
     strategy,
     telegram_bot,
@@ -90,11 +91,20 @@ async def _job_market_guard():
 
 
 async def _job_sync_fills():
-    """Tiap 60 detik: cek antrian yang sudah terisi."""
+    """Tiap 60 detik: cek entry fill dan TP/SL open trade."""
     try:
-        res = order_queue.sync_fills()
-        if res.get("filled"):
-            await telegram_bot.send_message(f"{res['filled']} antrian terisi (filled).")
+        exchange_res = order_queue.sync_fills()
+        sim_res = position_manager.sync_simulated_entries()
+        exit_res = position_manager.sync_exits()
+        filled = int(exchange_res.get("filled", 0)) + int(sim_res.get("filled", 0))
+        if filled:
+            await telegram_bot.send_message(f"{filled} antrian terisi (filled).")
+        if exit_res.get("closed"):
+            lines = [
+                f"{event['trade_id']} {event['reason'].upper()} exit={event['exit']} pnl={event['pnl']}"
+                for event in exit_res.get("events", [])
+            ]
+            await telegram_bot.send_message("TP/SL closed:\n" + "\n".join(lines))
     except Exception as exc:
         logger.exception("sync_fills job error: %s", exc)
 

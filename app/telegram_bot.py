@@ -4,13 +4,22 @@ import logging
 
 from telegram import Update
 from telegram.ext import (
-    Application, CommandHandler, ContextTypes,
+    Application, CommandHandler, ContextTypes, MessageHandler, filters,
 )
 
 from app.config import config
-from app import journal, market_guard, order_queue, performance
+from app import (
+    journal,
+    manual_entry,
+    market_data,
+    market_guard,
+    order_queue,
+    performance,
+    position_manager,
+)
 from app.executor import execute_plan, current_mode
 from app.binance_client import binance_client
+from app.indicators import add_indicators, is_downtrend
 
 logger = logging.getLogger("telegram_bot")
 
@@ -174,6 +183,76 @@ def _format_last_signal() -> str:
     )
 
 
+def _format_market_status() -> str:
+    ticker = market_data.fetch_ticker()
+    price = _fmt(ticker.get("price"), 2) if ticker else "-"
+    trend_df = add_indicators(market_data.load_candles_df(config.TIMEFRAME_TREND, 200))
+    signal_df = add_indicators(market_data.load_candles_df(config.TIMEFRAME_SIGNAL, 200))
+    trend = "bearish" if is_downtrend(trend_df) else "not bearish"
+    rsi = "-"
+    atr = "-"
+    if signal_df is not None and not signal_df.empty:
+        last = signal_df.iloc[-1]
+        rsi = _fmt(last.get("rsi14"), 2)
+        atr = _fmt(last.get("atr14"), 2)
+    return (
+        f"MARKET {config.SYMBOL}\n"
+        f"Price: {price}\n"
+        f"Trend {config.TIMEFRAME_TREND}: {trend}\n"
+        f"Signal {config.TIMEFRAME_SIGNAL}: RSI {rsi} | ATR {atr}\n\n"
+        f"{_format_guard_status()}"
+    )
+
+
+def _format_positions_status() -> str:
+    local = position_manager.local_open_positions()
+    lines = ["POSITIONS"]
+    if not local:
+        lines.append("Local open trades: none")
+    else:
+        lines.append(f"Local open trades: {len(local)}")
+        for trade in local[:8]:
+            lines.append(
+                f"#{trade['id']} {trade['side']} entry {_fmt(trade['entry'], 2)} "
+                f"mark {_fmt(trade.get('mark_price'), 2)} "
+                f"TP {_fmt(trade.get('take_profit'), 2)} "
+                f"SL {_fmt(trade.get('stop_loss'), 2)} "
+                f"uPnL {_fmt(trade.get('unrealized_pnl'), 8)}"
+            )
+
+    if current_mode() == "BINANCE_DEMO":
+        exchange = [
+            row for row in binance_client.get_position_risk(config.SYMBOL)
+            if abs(float(row.get("positionAmt", 0) or 0)) > 0
+        ]
+        if not exchange:
+            lines.append("\nExchange position: none")
+        else:
+            lines.append("\nExchange position:")
+            for row in exchange:
+                lines.append(
+                    f"{row.get('symbol')} amt {row.get('positionAmt')} "
+                    f"entry {row.get('entryPrice')} "
+                    f"mark {row.get('markPrice')} "
+                    f"uPnL {row.get('unRealizedProfit')}"
+                )
+    return "\n".join(lines)
+
+
+def _entry_help() -> str:
+    return (
+        "Format:\n"
+        "/entry short ENTRY SL TP\n"
+        "/entry long ENTRY SL TP\n\n"
+        "Contoh short:\n"
+        "/entry short 62500 63000 61500\n\n"
+        "Contoh long:\n"
+        "/entry long 62500 62000 63500\n\n"
+        "Manual entry tetap dicek risk manager dan market guard.\n"
+        "/force_entry melewati market guard dan tidak ikut cancel guard."
+    )
+
+
 # ---------- command handlers ----------
 async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     stats = journal.get_today_stats()
@@ -194,6 +273,56 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"{_format_last_signal()}"
     )
     await update.message.reply_text(message)
+
+
+async def cmd_market(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(_format_market_status())
+
+
+async def cmd_positions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(_format_positions_status())
+
+
+async def _handle_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
+                        respect_guard: bool = True):
+    if len(ctx.args) != 4:
+        await update.message.reply_text(_entry_help())
+        return
+    try:
+        side = ctx.args[0]
+        entry = float(ctx.args[1])
+        stop_loss = float(ctx.args[2])
+        take_profit = float(ctx.args[3])
+        result = manual_entry.create_entry(
+            side, entry, stop_loss, take_profit, respect_guard=respect_guard
+        )
+    except ValueError as exc:
+        await update.message.reply_text(f"Input tidak valid: {exc}\n\n{_entry_help()}")
+        return
+    except Exception as exc:
+        logger.exception("Manual entry gagal: %s", exc)
+        await update.message.reply_text(f"Manual entry error: {exc}")
+        return
+
+    setup = result.get("setup", {})
+    risk = result.get("risk", {})
+    await update.message.reply_text(
+        f"Manual entry plan #{result.get('plan_id', '-')}\n"
+        f"Status: {'OK' if result.get('ok') else 'BLOCKED'}\n"
+        f"Message: {result.get('message')}\n"
+        f"Side: {setup.get('side')} | Entry: {_fmt(setup.get('entry'), 2)}\n"
+        f"SL: {_fmt(setup.get('stop_loss'), 2)} | TP: {_fmt(setup.get('take_profit'), 2)}\n"
+        f"RR: {_fmt(setup.get('risk_reward'), 2)} | Size: {_fmt(risk.get('position_size'), 8)}\n"
+        f"Mode: {current_mode()}"
+    )
+
+
+async def cmd_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _handle_entry(update, ctx, respect_guard=True)
+
+
+async def cmd_force_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await _handle_entry(update, ctx, respect_guard=False)
 
 async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     bal = binance_client.get_balance()
@@ -220,8 +349,13 @@ async def cmd_daily_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     # Format command: /approve_123
     plan_id = _parse_id(update.message.text, "/approve_")
+    if plan_id is None and ctx.args:
+        try:
+            plan_id = int(ctx.args[0])
+        except ValueError:
+            plan_id = None
     if plan_id is None:
-        await update.message.reply_text("Format: /approve_<id>")
+        await update.message.reply_text("Format: /approve_<id> atau /approve <id>")
         return
     journal.update_trade_plan_status(plan_id, "approved")
     result = execute_plan(plan_id)
@@ -229,11 +363,25 @@ async def cmd_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     plan_id = _parse_id(update.message.text, "/reject_")
+    if plan_id is None and ctx.args:
+        try:
+            plan_id = int(ctx.args[0])
+        except ValueError:
+            plan_id = None
     if plan_id is None:
-        await update.message.reply_text("Format: /reject_<id>")
+        await update.message.reply_text("Format: /reject_<id> atau /reject <id>")
         return
     journal.update_trade_plan_status(plan_id, "rejected_manual")
     await update.message.reply_text(f"Trade plan {plan_id} ditolak.")
+
+
+async def cmd_inline_decision(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text or ""
+    if text.startswith("/approve_"):
+        await cmd_approve(update, ctx)
+    elif text.startswith("/reject_"):
+        await cmd_reject(update, ctx)
+
 
 def _parse_id(text: str, prefix: str) -> int | None:
     try:
@@ -249,11 +397,15 @@ def build_application() -> Application | None:
         return None
     app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("market", cmd_market))
+    app.add_handler(CommandHandler(["positions", "position"], cmd_positions))
+    app.add_handler(CommandHandler("entry", cmd_entry))
+    app.add_handler(CommandHandler("force_entry", cmd_force_entry))
     app.add_handler(CommandHandler("balance", cmd_balance))
     app.add_handler(CommandHandler("last_signal", cmd_last_signal))
     app.add_handler(CommandHandler("daily_report", cmd_daily_report))
-    # approve_/reject_ pakai prefix → tangkap lewat MessageHandler regex sederhana.
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("reject", cmd_reject))
+    app.add_handler(MessageHandler(filters.Regex(r"^/(approve|reject)_\d+"), cmd_inline_decision))
     _application = app
     return app

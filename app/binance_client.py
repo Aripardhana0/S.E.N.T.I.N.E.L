@@ -130,6 +130,37 @@ class BinanceClient:
             logger.error("place_limit_order gagal: %s", exc)
             return None
 
+    def place_market_order(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        reduce_only: bool = False,
+    ) -> dict | None:
+        if not config.has_binance_credentials():
+            logger.warning("Kredensial Binance kosong, market order dibatalkan.")
+            return None
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "type": "MARKET",
+            "quantity": self.round_qty(quantity),
+        }
+        if reduce_only:
+            params["reduceOnly"] = "true"
+        query = self._signed_query(params)
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.post(
+                    f"{self.base_url}/fapi/v1/order?{query}",
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as exc:
+            logger.error("place_market_order gagal: %s", exc)
+            return None
+
     def get_order(self, symbol: str, order_id: str | int) -> dict | None:
         if not config.has_binance_credentials():
             return None
@@ -160,6 +191,26 @@ class BinanceClient:
                 return resp.json()
         except Exception as exc:
             logger.error("get_open_orders gagal: %s", exc)
+            return []
+
+    def get_position_risk(self, symbol: str | None = None) -> list:
+        if not config.has_binance_credentials():
+            return []
+        params = {}
+        if symbol:
+            params["symbol"] = symbol
+        query = self._signed_query(params)
+        try:
+            with httpx.Client(timeout=self.timeout) as client:
+                resp = client.get(
+                    f"{self.base_url}/fapi/v2/positionRisk?{query}",
+                    headers=self._headers(),
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                return data if isinstance(data, list) else [data]
+        except Exception as exc:
+            logger.error("get_position_risk gagal: %s", exc)
             return []
 
     def cancel_order(self, symbol: str, order_id: str | int) -> dict | None:
