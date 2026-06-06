@@ -287,6 +287,31 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+    .level-cell {
+      display: grid;
+      gap: 2px;
+      justify-items: end;
+      min-width: 92px;
+    }
+    .level-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .level-price {
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .level-price.tp { color: var(--green); }
+    .level-price.sl { color: var(--red); }
+    .action-stack {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
     .table-wrap {
       overflow: auto;
       max-height: 392px;
@@ -561,7 +586,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>side</th><th class="num">entry</th><th class="num">risk</th><th class="num">size</th><th>status</th><th>order</th><th>action</th></tr>
+              <tr><th>id</th><th>side</th><th class="num">entry</th><th class="num">take profit</th><th class="num">stop loss</th><th class="num">risk</th><th class="num">size</th><th>status</th><th>order</th><th>action</th></tr>
             </thead>
             <tbody id="queueRows"></tbody>
           </table>
@@ -591,7 +616,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">tp</th><th class="num">sl</th><th class="num">exit</th><th class="num">pnl</th><th>status</th><th>reason</th><th>action</th></tr>
+              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">take profit</th><th class="num">stop loss</th><th class="num">exit</th><th class="num">pnl</th><th>status</th><th>reason</th><th>action</th></tr>
             </thead>
             <tbody id="tradeRows"></tbody>
           </table>
@@ -801,12 +826,14 @@
           <td>${r.id}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
+          <td class="num">${levelCell("take profit", r.take_profit, "tp")}</td>
+          <td class="num">${levelCell("stop loss", r.stop_loss, "sl")}</td>
           <td class="num">${fmt(r.risk_amount, 4)}</td>
           <td class="num">${fmt(r.position_size, 6)}</td>
           <td>${statusPill(r.status)}</td>
           <td>${escapeHtml(r.binance_order_id || "-")}</td>
-          <td><button class="small danger" data-cancel-plan="${r.id}" type="button">cancel</button></td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="8">no active queue</td></tr>';
+          <td><button class="small danger" data-close-plan="${r.id}" type="button">close order</button></td>
+        </tr>`).join("") : '<tr><td class="empty" colspan="10">no active queue</td></tr>';
     }
     function renderPlans(rows) {
       $("planCount").textContent = `${rows.length}`;
@@ -832,8 +859,8 @@
           <td>${escapeHtml(clip(r.setup_type || "-", 22))}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
-          <td class="num">${fmt(r.take_profit, 4)}</td>
-          <td class="num">${fmt(r.stop_loss, 4)}</td>
+          <td class="num">${levelCell("take profit", r.take_profit, "tp")}</td>
+          <td class="num">${levelCell("stop loss", r.stop_loss, "sl")}</td>
           <td class="num">${fmt(r.exit, 4)}</td>
           <td class="num">${fmt(r.pnl, 8)}</td>
           <td>${statusPill(r.status)}</td>
@@ -844,8 +871,18 @@
     function tradeActions(row) {
       if (row.status !== "open") return "-";
       return `
-        <button class="small" data-levels-trade="${row.id}" data-sl="${row.stop_loss ?? ""}" data-tp="${row.take_profit ?? ""}" type="button">tp/sl</button>
-        <button class="small danger" data-close-trade="${row.id}" type="button">close</button>
+        <div class="action-stack">
+          <button class="small" data-levels-trade="${row.id}" data-sl="${row.stop_loss ?? ""}" data-tp="${row.take_profit ?? ""}" type="button">edit TP/SL</button>
+          <button class="small danger" data-close-trade="${row.id}" type="button">close position</button>
+        </div>
+      `;
+    }
+    function levelCell(label, value, kind) {
+      return `
+        <span class="level-cell" title="${escapeHtml(label)}">
+          <span class="level-label">${escapeHtml(label)}</span>
+          <span class="level-price ${kind}">${fmt(value, 4)}</span>
+        </span>
       `;
     }
     function sidePill(side) {
@@ -946,11 +983,11 @@
           toast("manual approval updated");
           refresh();
         }
-        if (target.dataset.cancelPlan) {
-          const id = target.dataset.cancelPlan;
-          if (!confirm(`cancel queue plan #${id}?`)) return;
-          await postJson(`/queue/${id}/cancel`);
-          toast(`plan #${id} canceled`);
+        if (target.dataset.closePlan) {
+          const id = target.dataset.closePlan;
+          if (!confirm(`close/cancel queued order #${id}?`)) return;
+          await postJson(`/queue/${id}/close`);
+          toast(`queued order #${id} closed`);
           refresh();
         }
         if (target.dataset.closeTrade) {

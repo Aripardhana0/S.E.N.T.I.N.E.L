@@ -236,6 +236,14 @@ def cancel_queue_item(trade_plan_id: int):
     return result
 
 
+@app.post("/queue/{trade_plan_id}/close")
+def close_queue_item(trade_plan_id: int):
+    result = order_queue.cancel_plan(trade_plan_id, reason="dashboard close order")
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Close order gagal."))
+    return result
+
+
 @app.post("/sync-fills")
 def sync_fills_now():
     return {
