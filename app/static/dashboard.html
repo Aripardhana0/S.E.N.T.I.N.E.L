@@ -161,6 +161,7 @@
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 10px;
+      align-items: start;
     }
     .span-4 { grid-column: span 4; }
     .span-5 { grid-column: span 5; }
@@ -170,6 +171,7 @@
     .panel {
       min-width: 0;
       overflow: hidden;
+      align-self: start;
     }
     .panel-head {
       min-height: 42px;
@@ -481,11 +483,50 @@
       border-top: 1px solid var(--line);
       background: rgba(15, 21, 29, .96);
     }
+    .save-status {
+      min-height: 22px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .save-status.ok { color: var(--green); }
+    .save-status.bad { color: var(--red); }
+    .log-list {
+      display: grid;
+      gap: 7px;
+      padding: 12px;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .log-row {
+      display: grid;
+      grid-template-columns: 64px 178px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .018);
+    }
+    .log-meta {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .log-message {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text);
+    }
 
     @media (max-width: 1160px) {
       .status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
       .settings-fields, .clear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .log-row { grid-template-columns: 58px 1fr auto; }
+      .log-row .log-time { display: none; }
     }
     @media (max-width: 760px) {
       .topbar { grid-template-columns: 1fr; padding: 12px; }
@@ -506,6 +547,8 @@
       .tile-value { font-size: 18px; }
       .settings-fields, .clear-grid { grid-template-columns: 1fr; }
       .modal-backdrop { padding: 8px; }
+      .log-row { grid-template-columns: 1fr; }
+      .log-message { white-space: normal; }
     }
   </style>
 </head>
@@ -786,9 +829,25 @@
             <label class="check-row"><input type="checkbox" value="candles"> candles</label>
           </div>
         </section>
+
+        <section class="settings-section">
+          <h3>local logs</h3>
+          <div class="rule">
+            Log bisa dihapus satu per satu. Ini hanya menghapus catatan lokal di SQLite.
+          </div>
+          <div class="button-row" style="padding: 0 12px 12px">
+            <button class="small" id="refreshLogsBtn" type="button">refresh logs</button>
+          </div>
+          <div id="logRows" class="log-list">
+            <div class="rule">loading logs...</div>
+          </div>
+        </section>
       </div>
       <div class="settings-footer">
-        <div class="sub">Changes are written to mounted <code>.env</code> and applied to runtime when possible.</div>
+        <div>
+          <div class="sub">Changes are written to mounted <code>.env</code> and applied to runtime when possible.</div>
+          <div id="saveStatus" class="save-status">idle</div>
+        </div>
         <div class="actions">
           <button id="saveEnvBtn" class="primary" type="button">save .env</button>
           <button id="clearSelectedBtn" class="danger" type="button">clear selected</button>
@@ -845,6 +904,12 @@
         options.body = JSON.stringify(body);
       }
       const res = await fetch(path, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
+      return data;
+    }
+    async function deleteJson(path) {
+      const res = await fetch(path, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
       return data;
@@ -950,17 +1015,43 @@
           </div>
         </section>
       `).join("") || '<div class="rule">No .env values found.</div>';}
+    function setSaveStatus(message, state = "") {
+      const el = $("saveStatus");
+      el.textContent = message;
+      el.className = `save-status ${state}`;
+    }
+    function renderLogs(rows) {
+      $("logRows").innerHTML = rows.length ? rows.map((row) => `
+        <div class="log-row">
+          <div class="log-meta">#${row.id}</div>
+          <div class="log-meta log-time">${shortDate(row.created_at)}</div>
+          <div class="log-message" title="${escapeHtml(row.message || "-")}">
+            <span class="pill ${/error/i.test(row.level) ? "bad" : /warn/i.test(row.level) ? "warn" : "info"}">${escapeHtml(row.level || "-")}</span>
+            ${escapeHtml(row.message || "-")}
+          </div>
+          <button class="small danger" data-delete-log="${row.id}" type="button">delete</button>
+        </div>
+      `).join("") : '<div class="rule">no local logs</div>';
+    }
+    async function refreshLogs() {
+      const rows = await getJson("/logs?limit=80");
+      renderLogs(Array.isArray(rows) ? rows : []);
+    }
     async function openSettingsModal() {
       $("settingsModal").classList.add("show");
       $("settingsModal").setAttribute("aria-hidden", "false");
+      setSaveStatus("idle");
       const data = await getJson("/settings/env");
       renderEnvSettings(data);
+      await refreshLogs();
     }
     function closeSettingsModal() {
       $("settingsModal").classList.remove("show");
       $("settingsModal").setAttribute("aria-hidden", "true");
     }
     async function saveEnvSettings() {
+      setSaveStatus("saving .env...", "");
+      $("saveEnvBtn").disabled = true;
       const values = {};
       document.querySelectorAll("[data-env-key]").forEach((input) => {
         const key = input.dataset.envKey;
@@ -969,10 +1060,18 @@
         if (isSecret && value === "") return;
         values[key] = value;
       });
-      const data = await postJson("/settings/env", { values });
-      renderEnvSettings(data);
-      toast(".env saved");
-      refresh();
+      try {
+        const data = await postJson("/settings/env", { values });
+        renderEnvSettings(data);
+        setSaveStatus(`saved ${new Date().toLocaleTimeString()}`, "ok");
+        toast(".env saved");
+        refresh();
+      } catch (err) {
+        setSaveStatus(`failed: ${err.message || String(err)}`, "bad");
+        throw err;
+      } finally {
+        $("saveEnvBtn").disabled = false;
+      }
     }
     async function clearSelectedData() {
       const tables = Array.from(document.querySelectorAll("#clearOptions input:checked"))
@@ -1228,6 +1327,9 @@
     $("clearSelectedBtn").addEventListener("click", () => {
       clearSelectedData().catch((err) => toast(err.message || String(err)));
     });
+    $("refreshLogsBtn").addEventListener("click", () => {
+      refreshLogs().then(() => toast("logs refreshed")).catch((err) => toast(err.message || String(err)));
+    });
     document.addEventListener("click", async (event) => {
       const target = event.target.closest("button");
       if (!target) return;
@@ -1257,6 +1359,13 @@
         }
         if (target.id === "clearLocalBtn") {
           await openSettingsModal();
+        }
+        if (target.dataset.deleteLog) {
+          const id = target.dataset.deleteLog;
+          if (!confirm(`delete log #${id}?`)) return;
+          await deleteJson(`/logs/${id}`);
+          toast(`log #${id} deleted`);
+          await refreshLogs();
         }
         if (target.dataset.closePlan) {
           const id = target.dataset.closePlan;

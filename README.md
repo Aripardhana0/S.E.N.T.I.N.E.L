@@ -161,6 +161,8 @@ GUARD_ENABLED=true
 | `/sync-fills` | POST | Paksa sync status order |
 | `/admin/clear-local-data` | POST | Clear jurnal lokal dengan konfirmasi `CLEAR_LOCAL_DATA` |
 | `/positions` | GET | Daftar posisi lokal yang masih open |
+| `/logs` | GET | Daftar log lokal terbaru |
+| `/logs/{id}` | DELETE | Hapus satu log lokal |
 | `/approve/{id}` | POST | Approval manual legacy untuk DRY_RUN/PAPER |
 | `/reject/{id}` | POST | Reject trade plan |
 
@@ -203,7 +205,8 @@ Menu settings bisa mengubah semua field `.env`. Secret seperti API key dan
 token bisa diganti, tetapi nilai lama tidak ditampilkan di dashboard. Clear data
 lokal bisa dipilih per bagian: `trade_plans`, `trades`, `daily_stats`,
 `daily_reviews`, `logs`, dan `candles`. Fitur ini tidak menutup posisi Binance
-yang benar-benar sudah open.
+yang benar-benar sudah open. Di menu settings juga ada status `saving/saved/failed`
+untuk penyimpanan `.env`, serta daftar log lokal yang bisa dihapus satu per satu.
 
 ## Database
 

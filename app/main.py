@@ -246,6 +246,19 @@ def positions():
     return position_manager.local_open_positions()
 
 
+@app.get("/logs")
+def logs(limit: int = 80):
+    return journal.list_logs(limit=limit)
+
+
+@app.delete("/logs/{log_id}")
+def delete_log(log_id: int):
+    result = journal.delete_log(log_id)
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("message", "Log tidak ditemukan."))
+    return result
+
+
 @app.post("/cancel-all")
 def cancel_all():
     return order_queue.cancel_all_pending(reason="manual via API")

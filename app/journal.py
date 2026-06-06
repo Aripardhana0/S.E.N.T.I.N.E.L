@@ -21,6 +21,22 @@ def log_event(level: str, message: str):
             (_now(), level, message),
         )
 
+def list_logs(limit: int = 80) -> list:
+    limit = max(1, min(int(limit), 300))
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM logs ORDER BY id DESC LIMIT ?", (limit,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+def delete_log(log_id: int) -> dict:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM logs WHERE id=?", (log_id,)).fetchone()
+        if not row:
+            return {"ok": False, "deleted": 0, "message": "Log tidak ditemukan."}
+        conn.execute("DELETE FROM logs WHERE id=?", (log_id,))
+        return {"ok": True, "deleted": 1, "log": dict(row)}
+
 def save_trade_plan(setup: dict, risk: dict, ai: dict, status: str) -> int:
     setup_type, setup_key = setup_identity(setup)
     with get_conn() as conn:
