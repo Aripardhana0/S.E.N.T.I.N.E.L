@@ -142,13 +142,20 @@ GUARD_ENABLED=true
 | `/` | GET | Info app dan mode |
 | `/health` | GET | Health check |
 | `/status` | GET | Mode, symbol, guard, dan stats |
+| `/account` | GET | Saldo/equity, open risk, queued risk, win/loss nominal |
+| `/settings` | GET | Snapshot mode dan switch runtime |
+| `/settings/mode` | POST | Ubah mode: `DRY_RUN`, `PAPER`, `BINANCE_DEMO`, `DISABLED` |
+| `/settings/toggle` | POST | Ubah switch runtime seperti `AUTO_ENTRY` atau `GUARD_ENABLED` |
 | `/last-signal` | GET | Sinyal terakhir |
 | `/trade-plans` | GET | Daftar trade plan |
 | `/trades` | GET | Daftar trade |
 | `/trades/{id}/close` | POST | Tutup trade manual dan catat PnL |
+| `/trades/{id}/close-now` | POST | Close posisi open dengan harga market/ticker |
+| `/trades/{id}/levels` | POST | Ubah TP/SL posisi open |
 | `/performance` | GET | Winrate, setup performance, daily evaluation |
 | `/market-guard` | GET | Evaluasi market guard saat ini |
 | `/queue` | GET | Daftar antrian aktif |
+| `/queue/{id}/cancel` | POST | Cancel satu antrian |
 | `/cancel-all` | POST | Panic button cancel semua antrian |
 | `/sync-fills` | POST | Paksa sync status order |
 | `/positions` | GET | Daftar posisi lokal yang masih open |
@@ -162,9 +169,13 @@ GUARD_ENABLED=true
 | `/status` | Ringkasan mode, guard, queue, learning, dan sinyal terakhir |
 | `/market` | Harga, trend, RSI/ATR, dan market guard |
 | `/positions` | Posisi lokal open dan posisi Binance Demo jika aktif |
+| `/saldo` | Saldo/equity, open risk, queued risk, dan win/loss nominal |
+| `/mode dry|paper|demo|stop` | Ubah mode runtime dan simpan ke `.env` |
 | `/entry short ENTRY SL TP` | Buat entry manual short lewat Telegram |
 | `/entry long ENTRY SL TP` | Buat entry manual long lewat Telegram |
 | `/force_entry short ENTRY SL TP` | Buat entry manual yang melewati market guard, risk tetap dicek |
+| `/close TRADE_ID` | Close posisi open |
+| `/set_tpsl TRADE_ID SL TP` | Ubah SL/TP posisi open |
 | `/balance` | Balance Binance Demo/Testnet |
 | `/daily_report` | Ringkasan harian |
 
@@ -173,10 +184,18 @@ Contoh:
 ```text
 /entry short 62500 63000 61500
 /entry long 62500 62000 63500
+saldo
+market gimana
+close 3
+set tpsl 3 62000 63500
 ```
 
 Entry manual tetap melewati risk manager. `/force_entry` melewati market guard
 dan tidak ikut dibatalkan job guard, tapi tidak melewati risk manager.
+
+Dashboard runtime controls mengubah mode proses yang sedang berjalan dan menulis
+balik ke `.env`. Di Docker, `docker-compose.yml` me-mount `./.env:/app/.env`
+agar perubahan itu ikut tersimpan di host.
 
 ## Database
 

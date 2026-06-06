@@ -125,6 +125,11 @@ def list_trades(limit: int = 20) -> list:
         ).fetchall()
         return [dict(r) for r in rows]
 
+def get_trade(trade_id: int) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
+        return dict(row) if row else None
+
 def list_open_trades() -> list:
     with get_conn() as conn:
         rows = conn.execute(
@@ -187,6 +192,36 @@ def close_trade(trade_id: int, exit_price: float | None = None,
             (closed_at, exit_price, pnl, status, exit_reason, close_order_id, trade_id),
         )
         _apply_daily_close(conn, pnl)
+        updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
+        return dict(updated)
+
+def update_trade_levels(
+    trade_id: int,
+    stop_loss: float | None = None,
+    take_profit: float | None = None,
+) -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
+        if not row:
+            return None
+        trade = dict(row)
+        if trade.get("closed_at"):
+            raise ValueError("Trade sudah closed.")
+
+        entry = float(trade["entry"])
+        side = str(trade["side"]).lower()
+        stop_loss = float(stop_loss if stop_loss is not None else trade["stop_loss"])
+        take_profit = float(take_profit if take_profit is not None else trade["take_profit"])
+
+        if side == "short" and not (stop_loss > entry > take_profit):
+            raise ValueError("Untuk short wajib: SL > entry > TP.")
+        if side == "long" and not (stop_loss < entry < take_profit):
+            raise ValueError("Untuk long wajib: SL < entry < TP.")
+
+        conn.execute(
+            "UPDATE trades SET stop_loss=?, take_profit=? WHERE id=?",
+            (stop_loss, take_profit, trade_id),
+        )
         updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
         return dict(updated)
 

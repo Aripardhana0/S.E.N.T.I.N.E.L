@@ -1,6 +1,7 @@
 """Notifikasi & command Telegram.
 Mengirim sinyal dan menerima approve/reject + command status."""
 import logging
+import re
 
 from telegram import Update
 from telegram.ext import (
@@ -9,6 +10,7 @@ from telegram.ext import (
 
 from app.config import config
 from app import (
+    accounting,
     journal,
     manual_entry,
     market_data,
@@ -16,24 +18,28 @@ from app import (
     order_queue,
     performance,
     position_manager,
+    runtime_settings,
 )
 from app.executor import execute_plan, current_mode
 from app.binance_client import binance_client
-from app.indicators import add_indicators, is_downtrend
+from app.indicators import add_indicators, trend_regime
 
 logger = logging.getLogger("telegram_bot")
 
 _application: Application | None = None
 
 def format_signal(setup: dict, risk: dict, ai: dict, plan_id: int) -> str:
+    bias = "Bullish" if setup.get("side") == "long" else "Bearish"
     return (
         f"BTC/USDT Demo Signal\n"
-        f"Bias: Bearish\n"
-        f"Setup: Pullback Short\n"
+        f"Bias: {bias}\n"
+        f"Setup: {setup.get('setup_type', '-')}\n"
+        f"Reason: {setup.get('entry_reason', '-')}\n"
         f"Entry: {setup['entry']}\n"
         f"Stop Loss: {setup['stop_loss']}\n"
         f"Take Profit: {setup['take_profit']}\n"
         f"RR: {risk['risk_reward']}\n"
+        f"RSI/ADX/VOL: {setup.get('rsi', '-')} / {setup.get('adx', '-')} / {setup.get('volume_ratio', '-')}\n"
         f"Risk: {config.MAX_RISK_PER_TRADE * 100:.0f}%\n"
         f"Mode: {current_mode()}\n\n"
         f"Risk Manager:\n"
@@ -188,7 +194,7 @@ def _format_market_status() -> str:
     price = _fmt(ticker.get("price"), 2) if ticker else "-"
     trend_df = add_indicators(market_data.load_candles_df(config.TIMEFRAME_TREND, 200))
     signal_df = add_indicators(market_data.load_candles_df(config.TIMEFRAME_SIGNAL, 200))
-    trend = "bearish" if is_downtrend(trend_df) else "not bearish"
+    trend = trend_regime(trend_df)
     rsi = "-"
     atr = "-"
     if signal_df is not None and not signal_df.empty:
@@ -239,6 +245,27 @@ def _format_positions_status() -> str:
     return "\n".join(lines)
 
 
+def _format_account_status() -> str:
+    data = accounting.summary()
+    open_data = data["open"]
+    queue = data["queue"]
+    closed = data["closed_all"]
+    today = data["closed_today"]
+    return (
+        "ACCOUNT\n"
+        f"Mode: {data['mode']} | Source: {data['balance_source']}\n"
+        f"Balance: {_fmt(data['balance'], 4)} USDT\n"
+        f"Available: {_fmt(data['available'], 4)} USDT\n"
+        f"Equity est: {_fmt(data['equity_estimate'], 4)} USDT\n\n"
+        f"Open: {open_data['count']} posisi | notional {_fmt(open_data['notional'], 4)} | "
+        f"risk {_fmt(open_data['risk_amount'], 4)} | uPnL {_fmt(open_data['unrealized_pnl'], 4)}\n"
+        f"Queue: {queue['count']} entry | planned risk {_fmt(queue['risk_amount'], 4)}\n\n"
+        f"Closed all: win {closed['wins']} (+{_fmt(closed['gross_profit'], 4)}) | "
+        f"loss {closed['losses']} (-{_fmt(closed['gross_loss'], 4)}) | net {_fmt(closed['net_pnl'], 4)}\n"
+        f"Today: win {today['wins']} | loss {today['losses']} | net {_fmt(today['net_pnl'], 4)}"
+    )
+
+
 def _entry_help() -> str:
     return (
         "Format:\n"
@@ -250,6 +277,37 @@ def _entry_help() -> str:
         "/entry long 62500 62000 63500\n\n"
         "Manual entry tetap dicek risk manager dan market guard.\n"
         "/force_entry melewati market guard dan tidak ikut cancel guard."
+    )
+
+
+def _help_text() -> str:
+    return (
+        "Aku bisa bantu lewat chat biasa:\n"
+        "- status / market / saldo / posisi\n"
+        "- entry short 62500 63000 61500\n"
+        "- entry long 62500 62000 63500\n"
+        "- close 3\n"
+        "- set tpsl 3 62000 63500\n"
+        "- mode dry | paper | demo | stop\n\n"
+        "Slash command juga bisa: /status /market /positions /saldo /entry /force_entry."
+    )
+
+
+def _numbers(text: str) -> list[float]:
+    return [float(item) for item in re.findall(r"-?\d+(?:\.\d+)?", text)]
+
+
+def _entry_result_message(result: dict) -> str:
+    setup = result.get("setup", {})
+    risk = result.get("risk", {})
+    return (
+        f"Manual entry plan #{result.get('plan_id', '-')}\n"
+        f"Status: {'OK' if result.get('ok') else 'BLOCKED'}\n"
+        f"Message: {result.get('message')}\n"
+        f"Side: {setup.get('side')} | Entry: {_fmt(setup.get('entry'), 2)}\n"
+        f"SL: {_fmt(setup.get('stop_loss'), 2)} | TP: {_fmt(setup.get('take_profit'), 2)}\n"
+        f"RR: {_fmt(setup.get('risk_reward'), 2)} | Size: {_fmt(risk.get('position_size'), 8)}\n"
+        f"Mode: {current_mode()}"
     )
 
 
@@ -283,6 +341,28 @@ async def cmd_positions(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(_format_positions_status())
 
 
+async def cmd_account(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(_format_account_status())
+
+
+async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(_help_text())
+
+
+async def cmd_mode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text(
+            f"Mode sekarang: {current_mode()}\nKetik: /mode dry | paper | demo | stop"
+        )
+        return
+    try:
+        settings = runtime_settings.set_mode(ctx.args[0])
+    except ValueError as exc:
+        await update.message.reply_text(str(exc))
+        return
+    await update.message.reply_text(f"Mode diubah ke {settings['mode']}.")
+
+
 async def _handle_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
                         respect_guard: bool = True):
     if len(ctx.args) != 4:
@@ -304,17 +384,7 @@ async def _handle_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
         await update.message.reply_text(f"Manual entry error: {exc}")
         return
 
-    setup = result.get("setup", {})
-    risk = result.get("risk", {})
-    await update.message.reply_text(
-        f"Manual entry plan #{result.get('plan_id', '-')}\n"
-        f"Status: {'OK' if result.get('ok') else 'BLOCKED'}\n"
-        f"Message: {result.get('message')}\n"
-        f"Side: {setup.get('side')} | Entry: {_fmt(setup.get('entry'), 2)}\n"
-        f"SL: {_fmt(setup.get('stop_loss'), 2)} | TP: {_fmt(setup.get('take_profit'), 2)}\n"
-        f"RR: {_fmt(setup.get('risk_reward'), 2)} | Size: {_fmt(risk.get('position_size'), 8)}\n"
-        f"Mode: {current_mode()}"
-    )
+    await update.message.reply_text(_entry_result_message(result))
 
 
 async def cmd_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -324,6 +394,46 @@ async def cmd_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_force_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _handle_entry(update, ctx, respect_guard=False)
 
+
+async def cmd_close(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not ctx.args:
+        await update.message.reply_text("Format: /close <trade_id>")
+        return
+    try:
+        trade_id = int(ctx.args[0])
+    except ValueError:
+        await update.message.reply_text("Trade id harus angka.")
+        return
+    result = position_manager.close_trade_now(trade_id, reason="telegram")
+    if not result.get("ok"):
+        await update.message.reply_text(result.get("message", "Close gagal."))
+        return
+    trade = result["trade"]
+    await update.message.reply_text(
+        f"Trade #{trade_id} closed @ {_fmt(trade.get('exit'), 2)} | "
+        f"PnL {_fmt(trade.get('pnl'), 4)} | {trade.get('status')}"
+    )
+
+
+async def cmd_set_tpsl(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if len(ctx.args) != 3:
+        await update.message.reply_text("Format: /set_tpsl <trade_id> <SL> <TP>")
+        return
+    try:
+        trade_id = int(ctx.args[0])
+        stop_loss = float(ctx.args[1])
+        take_profit = float(ctx.args[2])
+        trade = journal.update_trade_levels(trade_id, stop_loss, take_profit)
+    except ValueError as exc:
+        await update.message.reply_text(str(exc))
+        return
+    if not trade:
+        await update.message.reply_text("Trade tidak ditemukan.")
+        return
+    await update.message.reply_text(
+        f"TP/SL trade #{trade_id} diubah: SL {_fmt(stop_loss, 2)} | TP {_fmt(take_profit, 2)}"
+    )
+
 async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     bal = binance_client.get_balance()
     if not bal:
@@ -332,6 +442,83 @@ async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         return
     await update.message.reply_text(f"Balance Binance Futures Testnet: {bal}")
+
+
+async def cmd_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = (update.message.text or "").strip()
+    low = text.lower()
+    try:
+        if any(word in low for word in ("bantuan", "help", "menu", "apa aja")):
+            await update.message.reply_text(_help_text())
+            return
+        if any(word in low for word in ("status", "kondisi bot", "bot gimana")):
+            await cmd_status(update, ctx)
+            return
+        if any(word in low for word in ("market", "harga", "trend", "rsi")):
+            await cmd_market(update, ctx)
+            return
+        if any(word in low for word in ("saldo", "balance", "equity", "modal")):
+            await cmd_account(update, ctx)
+            return
+        if any(word in low for word in ("posisi", "position", "open trade")):
+            await cmd_positions(update, ctx)
+            return
+        if low.startswith("mode "):
+            try:
+                settings = runtime_settings.set_mode(low.split()[1])
+                await update.message.reply_text(f"Mode diubah ke {settings['mode']}.")
+            except (IndexError, ValueError) as exc:
+                await update.message.reply_text(str(exc))
+            return
+        if low.startswith("close "):
+            nums = _numbers(text)
+            if nums:
+                result = position_manager.close_trade_now(int(nums[0]), reason="telegram")
+                if result.get("ok"):
+                    trade = result["trade"]
+                    await update.message.reply_text(
+                        f"Trade #{int(nums[0])} closed @ {_fmt(trade.get('exit'), 2)} | "
+                        f"PnL {_fmt(trade.get('pnl'), 4)} | {trade.get('status')}"
+                    )
+                else:
+                    await update.message.reply_text(result.get("message", "Close gagal."))
+            return
+        if low.startswith("set tpsl "):
+            nums = _numbers(text)
+            if len(nums) >= 3:
+                try:
+                    trade = journal.update_trade_levels(int(nums[0]), nums[1], nums[2])
+                except ValueError as exc:
+                    await update.message.reply_text(str(exc))
+                    return
+                if not trade:
+                    await update.message.reply_text("Trade tidak ditemukan.")
+                    return
+                await update.message.reply_text(
+                    f"TP/SL trade #{int(nums[0])} diubah: SL {_fmt(nums[1], 2)} | TP {_fmt(nums[2], 2)}"
+                )
+                return
+        if low.startswith("entry ") or low.startswith("force entry "):
+            force = low.startswith("force entry ")
+            side = "long" if " long " in f" {low} " else "short" if " short " in f" {low} " else None
+            nums = _numbers(text)
+            if side and len(nums) >= 3:
+                try:
+                    result = manual_entry.create_entry(
+                        side, nums[0], nums[1], nums[2], respect_guard=not force
+                    )
+                except ValueError as exc:
+                    await update.message.reply_text(f"Input tidak valid: {exc}\n\n{_entry_help()}")
+                    return
+                await update.message.reply_text(_entry_result_message(result))
+                return
+        await update.message.reply_text(
+            "Aku nangkep pesannya, tapi belum yakin aksinya. "
+            "Coba ketik: status, market, saldo, posisi, atau bantuan."
+        )
+    except Exception as exc:
+        logger.exception("Chat handler error: %s", exc)
+        await update.message.reply_text(f"Ada error saat memproses chat: {exc}")
 
 async def cmd_last_signal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     sig = journal.get_last_signal()
@@ -396,16 +583,22 @@ def build_application() -> Application | None:
         logger.warning("TELEGRAM_BOT_TOKEN/CHAT_ID kosong, bot tidak aktif.")
         return None
     app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(CommandHandler(["start", "help"], cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("market", cmd_market))
     app.add_handler(CommandHandler(["positions", "position"], cmd_positions))
+    app.add_handler(CommandHandler(["saldo", "account"], cmd_account))
+    app.add_handler(CommandHandler("mode", cmd_mode))
     app.add_handler(CommandHandler("entry", cmd_entry))
     app.add_handler(CommandHandler("force_entry", cmd_force_entry))
+    app.add_handler(CommandHandler("close", cmd_close))
+    app.add_handler(CommandHandler("set_tpsl", cmd_set_tpsl))
     app.add_handler(CommandHandler("balance", cmd_balance))
     app.add_handler(CommandHandler("last_signal", cmd_last_signal))
     app.add_handler(CommandHandler("daily_report", cmd_daily_report))
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("reject", cmd_reject))
     app.add_handler(MessageHandler(filters.Regex(r"^/(approve|reject)_\d+"), cmd_inline_decision))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, cmd_chat))
     _application = app
     return app

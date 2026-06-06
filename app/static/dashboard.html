@@ -104,6 +104,17 @@
       color: var(--red);
       border-color: rgba(255, 92, 119, .45);
     }
+    button.small {
+      min-height: 28px;
+      padding: 4px 7px;
+      font-size: 11px;
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
     main {
       max-width: 1440px;
       margin: 0 auto;
@@ -111,7 +122,7 @@
     }
     .status-grid {
       display: grid;
-      grid-template-columns: 1.15fr repeat(5, minmax(130px, .75fr));
+      grid-template-columns: 1.1fr repeat(6, minmax(120px, .8fr));
       gap: 10px;
       margin-bottom: 10px;
     }
@@ -380,19 +391,24 @@
         <div class="tile-note">signal 15m / trend 1h</div>
       </div>
       <div class="tile">
-        <div class="tile-label">guard</div>
-        <div class="tile-value" id="guardText">-</div>
-        <div class="tile-note" id="guardHint">waiting metrics</div>
+        <div class="tile-label">balance</div>
+        <div class="tile-value" id="balanceBig">-</div>
+        <div class="tile-note" id="balanceSource">USDT</div>
       </div>
       <div class="tile">
-        <div class="tile-label">queue</div>
-        <div class="tile-value" id="queueBig">0</div>
-        <div class="tile-note" id="queueHint">none</div>
+        <div class="tile-label">available</div>
+        <div class="tile-value" id="availableBig">-</div>
+        <div class="tile-note">ready balance</div>
       </div>
       <div class="tile">
-        <div class="tile-label">trades today</div>
-        <div class="tile-value" id="tradesCount">0</div>
-        <div class="tile-note">pnl <span id="pnl">0</span></div>
+        <div class="tile-label">open pnl</div>
+        <div class="tile-value" id="openPnlBig">0</div>
+        <div class="tile-note" id="openCapitalNote">0 open</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">closed pnl</div>
+        <div class="tile-value" id="closedNetBig">0</div>
+        <div class="tile-note" id="closedSplitNote">win/loss</div>
       </div>
       <div class="tile">
         <div class="tile-label">connection</div>
@@ -402,6 +418,46 @@
     </section>
 
     <section class="grid">
+      <article class="panel span-4">
+        <div class="panel-head">
+          <h2>capital</h2>
+          <span id="accountPill" class="pill info">local</span>
+        </div>
+        <div class="panel-body">
+          <div class="kv">
+            <div class="kv-item"><div class="label">equity estimate</div><div id="equityEstimate" class="value">-</div></div>
+            <div class="kv-item"><div class="label">initial equity</div><div id="initialEquity" class="value">-</div></div>
+            <div class="kv-item"><div class="label">open notional</div><div id="openNotional" class="value">0</div></div>
+            <div class="kv-item"><div class="label">open risk</div><div id="openRisk" class="value">0</div></div>
+            <div class="kv-item"><div class="label">queued risk</div><div id="queuedRisk" class="value">0</div></div>
+            <div class="kv-item"><div class="label">closed win / loss</div><div id="closedWinLoss" class="value">0 / 0</div></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel span-4">
+        <div class="panel-head">
+          <h2>controls</h2>
+          <span id="settingsPill" class="pill info">runtime</span>
+        </div>
+        <div class="panel-body">
+          <div class="label">mode</div>
+          <div class="button-row">
+            <button class="small" data-mode="DRY_RUN" type="button">dry</button>
+            <button class="small" data-mode="PAPER" type="button">paper</button>
+            <button class="small" data-mode="BINANCE_DEMO" type="button">demo</button>
+            <button class="small danger" data-mode="DISABLED" type="button">stop</button>
+          </div>
+          <div class="label" style="margin-top:12px">switches</div>
+          <div class="button-row">
+            <button class="small" id="toggleAutoBtn" type="button">auto entry</button>
+            <button class="small" id="toggleGuardBtn" type="button">guard</button>
+            <button class="small" id="toggleManualBtn" type="button">manual approval</button>
+          </div>
+          <div class="rule" id="settingsNote">Mode changes update runtime and .env.</div>
+        </div>
+      </article>
+
       <article class="panel span-4">
         <div class="panel-head">
           <h2>runtime</h2>
@@ -505,7 +561,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>side</th><th class="num">entry</th><th class="num">size</th><th>status</th><th>order</th></tr>
+              <tr><th>id</th><th>side</th><th class="num">entry</th><th class="num">risk</th><th class="num">size</th><th>status</th><th>order</th><th>action</th></tr>
             </thead>
             <tbody id="queueRows"></tbody>
           </table>
@@ -535,7 +591,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">tp</th><th class="num">sl</th><th class="num">exit</th><th class="num">pnl</th><th>status</th><th>reason</th></tr>
+              <tr><th>id</th><th>opened</th><th>setup</th><th>side</th><th class="num">entry</th><th class="num">tp</th><th class="num">sl</th><th class="num">exit</th><th class="num">pnl</th><th>status</th><th>reason</th><th>action</th></tr>
             </thead>
             <tbody id="tradeRows"></tbody>
           </table>
@@ -548,6 +604,8 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
+    let lastStatus = null;
+    let lastSettings = null;
     const guardLimit = { atr_ratio: 1.8, vol_ratio: 3.0, range_ratio: 2.5, move_pct: 1.5 };
     const fmt = (value, digits = 2) => {
       const n = Number(value);
@@ -584,8 +642,13 @@
         return { name, ok: false, error: err.message || String(err) };
       }
     }
-    async function postJson(path) {
-      const res = await fetch(path, { method: "POST" });
+    async function postJson(path, body = null) {
+      const options = { method: "POST" };
+      if (body) {
+        options.headers = { "Content-Type": "application/json" };
+        options.body = JSON.stringify(body);
+      }
+      const res = await fetch(path, options);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
       return data;
@@ -607,6 +670,7 @@
       el.className = `bar-fill ${pct >= 100 ? "bad" : pct >= 72 ? "warn" : ""}`;
     }
     function renderStatus(data) {
+      lastStatus = data;
       const mode = data.mode || "-";
       $("modeText").textContent = mode;
       $("modeHint").textContent = modeHint(mode, data.execution_enabled);
@@ -620,12 +684,37 @@
       $("runtimeNotes").innerHTML = runtimeNotes(data).join("");
 
       const today = data.today || {};
-      $("tradesCount").textContent = today.trades_count ?? 0;
       $("tradesDetail").textContent = today.trades_count ?? 0;
-      $("pnl").textContent = fmt(today.realized_pnl, 4);
       $("pnlDetail").textContent = fmt(today.realized_pnl, 4);
       $("lossCount").textContent = today.consecutive_loss ?? 0;
       $("day").textContent = today.day || "-";
+    }
+    function renderAccount(data) {
+      $("balanceBig").textContent = `${fmt(data.balance, 4)}`;
+      $("availableBig").textContent = `${fmt(data.available, 4)}`;
+      $("balanceSource").textContent = `${data.balance_source || "local"} USDT`;
+      $("openPnlBig").textContent = fmt(data.open?.unrealized_pnl, 4);
+      $("openCapitalNote").textContent = `${data.open?.count ?? 0} open | risk ${fmt(data.open?.risk_amount, 4)}`;
+      $("closedNetBig").textContent = fmt(data.closed_all?.net_pnl, 4);
+      $("closedSplitNote").textContent = `+${fmt(data.closed_all?.gross_profit, 4)} / -${fmt(data.closed_all?.gross_loss, 4)}`;
+      $("accountPill").textContent = data.balance_source || "local";
+      $("equityEstimate").textContent = fmt(data.equity_estimate, 4);
+      $("initialEquity").textContent = fmt(data.initial_equity, 4);
+      $("openNotional").textContent = fmt(data.open?.notional, 4);
+      $("openRisk").textContent = fmt(data.open?.risk_amount, 4);
+      $("queuedRisk").textContent = fmt(data.queue?.risk_amount, 4);
+      $("closedWinLoss").textContent =
+        `+${fmt(data.closed_all?.gross_profit, 4)} / -${fmt(data.closed_all?.gross_loss, 4)}`;
+    }
+    function renderSettings(data) {
+      lastSettings = data;
+      $("settingsPill").textContent = data.mode || "-";
+      $("toggleAutoBtn").className = `small ${data.auto_entry ? "primary" : ""}`;
+      $("toggleGuardBtn").className = `small ${data.guard_enabled ? "primary" : ""}`;
+      $("toggleManualBtn").className = `small ${data.require_manual_approval ? "primary" : ""}`;
+      $("toggleAutoBtn").textContent = `auto ${data.auto_entry ? "on" : "off"}`;
+      $("toggleGuardBtn").textContent = `guard ${data.guard_enabled ? "on" : "off"}`;
+      $("toggleManualBtn").textContent = `manual ${data.require_manual_approval ? "on" : "off"}`;
     }
     function runtimeNotes(data) {
       const notes = [];
@@ -638,8 +727,8 @@
     }
     function renderGuard(data) {
       const m = data.metrics || {};
-      $("guardText").textContent = data.bad ? "BLOCK" : "CLEAR";
-      $("guardHint").textContent = data.bad ? "entries blocked" : "market pass";
+      if ($("guardText")) $("guardText").textContent = data.bad ? "BLOCK" : "CLEAR";
+      if ($("guardHint")) $("guardHint").textContent = data.bad ? "entries blocked" : "market pass";
       $("guardPill").textContent = data.bad ? "bad" : "ok";
       $("guardPill").className = data.bad ? "pill bad" : "pill ok";
       $("atrRatio").textContent = fmt(m.atr_ratio);
@@ -703,8 +792,8 @@
     function renderQueue(rows) {
       const sim = rows.filter((r) => r.status === "queued_sim").length;
       const live = rows.filter((r) => r.status === "queued").length;
-      $("queueBig").textContent = rows.length;
-      $("queueHint").textContent = live ? `${live} exchange` : sim ? `${sim} simulated` : "none";
+      if ($("queueBig")) $("queueBig").textContent = rows.length;
+      if ($("queueHint")) $("queueHint").textContent = live ? `${live} exchange` : sim ? `${sim} simulated` : "none";
       $("queueSplit").textContent = `${sim} sim / ${live} live`;
       $("queueCount").textContent = `${rows.length}`;
       $("queueRows").innerHTML = rows.length ? rows.map((r) => `
@@ -712,10 +801,12 @@
           <td>${r.id}</td>
           <td>${sidePill(r.side)}</td>
           <td class="num">${fmt(r.entry, 4)}</td>
+          <td class="num">${fmt(r.risk_amount, 4)}</td>
           <td class="num">${fmt(r.position_size, 6)}</td>
           <td>${statusPill(r.status)}</td>
           <td>${escapeHtml(r.binance_order_id || "-")}</td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="6">no active queue</td></tr>';
+          <td><button class="small danger" data-cancel-plan="${r.id}" type="button">cancel</button></td>
+        </tr>`).join("") : '<tr><td class="empty" colspan="8">no active queue</td></tr>';
     }
     function renderPlans(rows) {
       $("planCount").textContent = `${rows.length}`;
@@ -747,7 +838,15 @@
           <td class="num">${fmt(r.pnl, 8)}</td>
           <td>${statusPill(r.status)}</td>
           <td>${escapeHtml(r.exit_reason || r.binance_order_id || r.okx_order_id || "-")}</td>
-        </tr>`).join("") : '<tr><td class="empty" colspan="11">no filled trades</td></tr>';
+          <td>${tradeActions(r)}</td>
+        </tr>`).join("") : '<tr><td class="empty" colspan="12">no filled trades</td></tr>';
+    }
+    function tradeActions(row) {
+      if (row.status !== "open") return "-";
+      return `
+        <button class="small" data-levels-trade="${row.id}" data-sl="${row.stop_loss ?? ""}" data-tp="${row.take_profit ?? ""}" type="button">tp/sl</button>
+        <button class="small danger" data-close-trade="${row.id}" type="button">close</button>
+      `;
     }
     function sidePill(side) {
       const s = escapeHtml(side || "-");
@@ -772,6 +871,8 @@
       $("connection").textContent = "sync";
       const results = await Promise.all([
         getPanel("status", "/status"),
+        getPanel("account", "/account"),
+        getPanel("settings", "/settings"),
         getPanel("guard", "/market-guard"),
         getPanel("performance", "/performance"),
         getPanel("queue", "/queue"),
@@ -780,6 +881,8 @@
       ]);
       const byName = Object.fromEntries(results.map((item) => [item.name, item]));
       if (byName.status.ok) renderStatus(byName.status.data);
+      if (byName.account.ok) renderAccount(byName.account.data);
+      if (byName.settings.ok) renderSettings(byName.settings.data);
       if (byName.guard.ok) renderGuard(byName.guard.data);
       if (byName.performance.ok) renderPerformance(byName.performance.data);
       if (byName.queue.ok) renderQueue(Array.isArray(byName.queue.data) ? byName.queue.data : []);
@@ -815,6 +918,64 @@
         toast(`canceled ${res.canceled ?? 0} queue item(s)`);
         refresh();
       } catch (err) { toast(err.message || String(err)); }
+    });
+    document.addEventListener("click", async (event) => {
+      const target = event.target.closest("button");
+      if (!target) return;
+      try {
+        if (target.dataset.mode) {
+          const res = await postJson("/settings/mode", { mode: target.dataset.mode });
+          toast(`mode set to ${res.mode}`);
+          refresh();
+        }
+        if (target.id === "toggleAutoBtn" && lastSettings) {
+          await postJson("/settings/toggle", { key: "AUTO_ENTRY", value: !lastSettings.auto_entry });
+          toast("auto entry updated");
+          refresh();
+        }
+        if (target.id === "toggleGuardBtn" && lastSettings) {
+          await postJson("/settings/toggle", { key: "GUARD_ENABLED", value: !lastSettings.guard_enabled });
+          toast("guard updated");
+          refresh();
+        }
+        if (target.id === "toggleManualBtn" && lastSettings) {
+          await postJson("/settings/toggle", {
+            key: "REQUIRE_MANUAL_APPROVAL",
+            value: !lastSettings.require_manual_approval
+          });
+          toast("manual approval updated");
+          refresh();
+        }
+        if (target.dataset.cancelPlan) {
+          const id = target.dataset.cancelPlan;
+          if (!confirm(`cancel queue plan #${id}?`)) return;
+          await postJson(`/queue/${id}/cancel`);
+          toast(`plan #${id} canceled`);
+          refresh();
+        }
+        if (target.dataset.closeTrade) {
+          const id = target.dataset.closeTrade;
+          if (!confirm(`close trade #${id} at market price?`)) return;
+          const res = await postJson(`/trades/${id}/close-now`);
+          toast(`trade #${id} closed pnl ${fmt(res.trade?.pnl, 4)}`);
+          refresh();
+        }
+        if (target.dataset.levelsTrade) {
+          const id = target.dataset.levelsTrade;
+          const sl = prompt(`new stop loss for trade #${id}`, target.dataset.sl || "");
+          if (sl === null) return;
+          const tp = prompt(`new take profit for trade #${id}`, target.dataset.tp || "");
+          if (tp === null) return;
+          await postJson(`/trades/${id}/levels`, {
+            stop_loss: Number(sl),
+            take_profit: Number(tp)
+          });
+          toast(`trade #${id} TP/SL updated`);
+          refresh();
+        }
+      } catch (err) {
+        toast(err.message || String(err));
+      }
     });
     refresh();
     setInterval(refresh, 10000);

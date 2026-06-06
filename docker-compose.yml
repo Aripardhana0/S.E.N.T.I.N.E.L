@@ -10,6 +10,8 @@ services:
     volumes:
       # Persist database SQLite di host.
       - ./data:/app/data
+      # Izinkan dashboard runtime controls menulis balik mode ke .env host.
+      - ./.env:/app/.env
     # Batasi resource agar aman di VPS 2 CPU / 2 GB RAM.
     deploy:
       resources:

@@ -89,6 +89,20 @@ def cancel_all_pending(reason: str = "market guard") -> dict:
     return {"ok": True, "canceled": canceled, "skipped_force": skipped, "reason": reason}
 
 
+def cancel_plan(plan_id: int, reason: str = "manual") -> dict:
+    plan = journal.get_trade_plan(plan_id)
+    if not plan:
+        return {"ok": False, "message": "Plan tidak ditemukan."}
+    if plan.get("status") not in ACTIVE_STATUSES:
+        return {"ok": False, "message": f"Plan status {plan.get('status')} bukan antrian aktif."}
+    mode = current_mode()
+    if mode == "BINANCE_DEMO" and plan.get("binance_order_id"):
+        binance_client.cancel_order(config.SYMBOL, plan["binance_order_id"])
+    journal.update_trade_plan_status(plan_id, "canceled_manual")
+    journal.log_event("INFO", f"Plan {plan_id} dibatalkan ({reason}).")
+    return {"ok": True, "canceled": 1, "plan_id": plan_id}
+
+
 def sync_fills() -> dict:
     """Cek status antrian Binance dan catat trade saat FILLED."""
     if current_mode() != "BINANCE_DEMO":

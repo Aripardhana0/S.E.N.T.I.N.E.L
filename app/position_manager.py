@@ -71,6 +71,45 @@ def _close_side(trade: dict) -> str:
     return "BUY" if str(trade["side"]).lower() == "short" else "SELL"
 
 
+def close_trade_now(trade_id: int, reason: str = "manual") -> dict:
+    """Close an open trade at current ticker price.
+
+    BINANCE_DEMO trades are closed with reduce-only MARKET order first; local
+    simulated trades are closed in the journal only.
+    """
+    trade = journal.get_trade(trade_id)
+    if not trade:
+        return {"ok": False, "message": "Trade tidak ditemukan."}
+    if trade.get("closed_at") or trade.get("status") != "open":
+        return {"ok": False, "message": "Trade bukan posisi open."}
+
+    price = _last_price()
+    if price is None:
+        return {"ok": False, "message": "Ticker kosong, tidak bisa close."}
+
+    close_order_id = None
+    mode = current_mode()
+    if trade.get("mode") == "BINANCE_DEMO" and mode == "BINANCE_DEMO":
+        resp = binance_client.place_market_order(
+            config.SYMBOL,
+            _close_side(trade),
+            trade["size"],
+            reduce_only=True,
+        )
+        if not resp or "orderId" not in resp:
+            return {"ok": False, "message": f"Close order gagal: {resp}"}
+        close_order_id = str(resp["orderId"])
+
+    updated = journal.close_trade(
+        trade_id,
+        exit_price=price,
+        exit_reason=reason,
+        close_order_id=close_order_id,
+    )
+    journal.log_event("INFO", f"Trade {trade_id} closed manual @ {price}.")
+    return {"ok": True, "trade": updated}
+
+
 def sync_simulated_entries() -> dict:
     """Fill DRY_RUN/PAPER queued plans when the limit entry is touched."""
     mode = current_mode()

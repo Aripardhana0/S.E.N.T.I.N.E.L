@@ -5,14 +5,17 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 from app import (
+    accounting,
     journal,
     market_data,
     market_guard,
     order_queue,
     performance,
     position_manager,
+    runtime_settings,
     telegram_bot,
 )
 from app.config import config
@@ -30,6 +33,20 @@ logger = logging.getLogger("main")
 
 _tg_app = None
 _DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
+
+
+class ModePayload(BaseModel):
+    mode: str
+
+
+class TogglePayload(BaseModel):
+    key: str
+    value: bool
+
+
+class LevelsPayload(BaseModel):
+    stop_loss: float | None = None
+    take_profit: float | None = None
 
 
 @asynccontextmanager
@@ -108,6 +125,32 @@ def status():
     }
 
 
+@app.get("/account")
+def account():
+    return accounting.summary()
+
+
+@app.get("/settings")
+def settings():
+    return runtime_settings.snapshot()
+
+
+@app.post("/settings/mode")
+def set_mode(payload: ModePayload):
+    try:
+        return runtime_settings.set_mode(payload.mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/settings/toggle")
+def set_toggle(payload: TogglePayload):
+    try:
+        return runtime_settings.set_bool(payload.key, payload.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 @app.get("/last-signal")
 def last_signal():
     return journal.get_last_signal() or {"message": "belum ada sinyal"}
@@ -129,6 +172,29 @@ def close_trade(trade_id: int, exit_price: float | None = None,
     try:
         trade = journal.close_trade(
             trade_id, exit_price=exit_price, pnl=pnl, exit_reason=exit_reason
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not trade:
+        raise HTTPException(status_code=404, detail="Trade tidak ditemukan.")
+    return {"ok": True, "trade": trade}
+
+
+@app.post("/trades/{trade_id}/close-now")
+def close_trade_now(trade_id: int):
+    result = position_manager.close_trade_now(trade_id, reason="dashboard")
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Close gagal."))
+    return result
+
+
+@app.post("/trades/{trade_id}/levels")
+def update_trade_levels(trade_id: int, payload: LevelsPayload):
+    try:
+        trade = journal.update_trade_levels(
+            trade_id,
+            stop_loss=payload.stop_loss,
+            take_profit=payload.take_profit,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -160,6 +226,14 @@ def positions():
 @app.post("/cancel-all")
 def cancel_all():
     return order_queue.cancel_all_pending(reason="manual via API")
+
+
+@app.post("/queue/{trade_plan_id}/cancel")
+def cancel_queue_item(trade_plan_id: int):
+    result = order_queue.cancel_plan(trade_plan_id, reason="dashboard")
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("message", "Cancel gagal."))
+    return result
 
 
 @app.post("/sync-fills")
