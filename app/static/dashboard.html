@@ -479,6 +479,10 @@
             <button class="small" id="toggleGuardBtn" type="button">guard</button>
             <button class="small" id="toggleManualBtn" type="button">manual approval</button>
           </div>
+          <div class="label" style="margin-top:12px">data</div>
+          <div class="button-row">
+            <button class="small danger" id="clearLocalBtn" type="button">clear local journal</button>
+          </div>
           <div class="rule" id="settingsNote">Mode changes update runtime and .env.</div>
         </div>
       </article>
@@ -981,6 +985,26 @@
             value: !lastSettings.require_manual_approval
           });
           toast("manual approval updated");
+          refresh();
+        }
+        if (target.id === "clearLocalBtn") {
+          const warning = [
+            "Ini akan menghapus trade_plans, trades, daily stats, reviews, dan logs lokal.",
+            "Candle market tetap disimpan.",
+            "Ini TIDAK menutup posisi Binance yang sudah open.",
+            "Ketik CLEAR_LOCAL_DATA untuk lanjut."
+          ].join("\n\n");
+          const confirmText = prompt(warning, "");
+          if (confirmText !== "CLEAR_LOCAL_DATA") {
+            toast("clear dibatalkan");
+            return;
+          }
+          const res = await postJson("/admin/clear-local-data", {
+            confirm: "CLEAR_LOCAL_DATA",
+            include_candles: false
+          });
+          const cleared = res.clear_result?.cleared || {};
+          toast(`local journal cleared: ${Object.entries(cleared).map(([k, v]) => `${k} ${v}`).join("; ")}`);
           refresh();
         }
         if (target.dataset.closePlan) {

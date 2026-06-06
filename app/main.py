@@ -49,6 +49,11 @@ class LevelsPayload(BaseModel):
     take_profit: float | None = None
 
 
+class ClearLocalDataPayload(BaseModel):
+    confirm: str
+    include_candles: bool = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
@@ -250,6 +255,23 @@ def sync_fills_now():
         "exchange": order_queue.sync_fills(),
         "simulated": position_manager.sync_simulated_entries(),
         "exits": position_manager.sync_exits(),
+    }
+
+
+@app.post("/admin/clear-local-data")
+def clear_local_data(payload: ClearLocalDataPayload):
+    if payload.confirm != "CLEAR_LOCAL_DATA":
+        raise HTTPException(
+            status_code=400,
+            detail="Ketik CLEAR_LOCAL_DATA untuk konfirmasi clear data lokal.",
+        )
+    cancel_result = order_queue.cancel_all_pending(reason="clear local data")
+    clear_result = journal.clear_local_journal(include_candles=payload.include_candles)
+    return {
+        "ok": True,
+        "cancel_result": cancel_result,
+        "clear_result": clear_result,
+        "note": "Ini hanya membersihkan database lokal, bukan menutup posisi Binance yang sudah open.",
     }
 
 

@@ -158,6 +158,7 @@ GUARD_ENABLED=true
 | `/queue/{id}/cancel` | POST | Cancel satu antrian |
 | `/cancel-all` | POST | Panic button cancel semua antrian |
 | `/sync-fills` | POST | Paksa sync status order |
+| `/admin/clear-local-data` | POST | Clear jurnal lokal dengan konfirmasi `CLEAR_LOCAL_DATA` |
 | `/positions` | GET | Daftar posisi lokal yang masih open |
 | `/approve/{id}` | POST | Approval manual legacy untuk DRY_RUN/PAPER |
 | `/reject/{id}` | POST | Reject trade plan |
@@ -196,6 +197,10 @@ dan tidak ikut dibatalkan job guard, tapi tidak melewati risk manager.
 Dashboard runtime controls mengubah mode proses yang sedang berjalan dan menulis
 balik ke `.env`. Di Docker, `docker-compose.yml` me-mount `./.env:/app/.env`
 agar perubahan itu ikut tersimpan di host.
+
+Tombol `clear local journal` hanya membersihkan SQLite lokal untuk
+`trade_plans`, `trades`, daily stats/reviews, dan logs. Candle market tetap
+disimpan. Fitur ini tidak menutup posisi Binance yang benar-benar sudah open.
 
 ## Database
 

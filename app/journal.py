@@ -225,6 +225,33 @@ def update_trade_levels(
         updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
         return dict(updated)
 
+def clear_local_journal(include_candles: bool = False) -> dict:
+    """Clear local trading journal data.
+
+    By default candles are kept so indicators still have history after reset.
+    This does not close exchange positions; callers should cancel/close exchange
+    exposure first when needed.
+    """
+    tables = ["trade_plans", "trades", "daily_stats", "daily_reviews", "logs"]
+    if include_candles:
+        tables.append("candles")
+    with get_conn() as conn:
+        counts = {}
+        for table in tables:
+            row = conn.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
+            counts[table] = int(row["total"] or 0)
+            conn.execute(f"DELETE FROM {table}")
+            conn.execute("DELETE FROM sqlite_sequence WHERE name=?", (table,))
+        conn.execute(
+            "INSERT INTO logs (created_at, level, message) VALUES (?,?,?)",
+            (
+                _now(),
+                "WARNING",
+                f"Local journal cleared. include_candles={include_candles}",
+            ),
+        )
+    return {"ok": True, "cleared": counts, "include_candles": include_candles}
+
 def get_today_stats() -> dict:
     day = _today()
     with get_conn() as conn:
