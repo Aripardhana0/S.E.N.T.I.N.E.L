@@ -1,5 +1,5 @@
-"""Notifikasi & command Telegram.
-Mengirim sinyal dan menerima approve/reject + command status."""
+"""Telegram notifications and commands.
+Sends signals and receives approve/reject plus status commands."""
 import logging
 import re
 
@@ -54,16 +54,16 @@ def format_signal(setup: dict, risk: dict, ai: dict, plan_id: int) -> str:
     )
 
 async def send_message(text: str):
-    """Kirim pesan ke chat yang dikonfigurasi."""
+    """Send a message to the configured chat."""
     if not config.has_telegram() or _application is None:
-        logger.warning("Telegram tidak dikonfigurasi, pesan dilewati.")
+        logger.warning("Telegram is not configured; message skipped.")
         return
     try:
         await _application.bot.send_message(
             chat_id=config.TELEGRAM_CHAT_ID, text=text
         )
     except Exception as e:
-        logger.error("Gagal kirim Telegram: %s", e)
+        logger.error("Failed to send Telegram message: %s", e)
 
 # ---------- formatting helpers ----------
 def _onoff(value: bool) -> str:
@@ -81,12 +81,12 @@ def _fmt(value, digits: int = 4) -> str:
 
 def _runtime_hint(mode: str) -> str:
     if mode == "DRY_RUN":
-        return "simulasi aman, tidak kirim order exchange"
+        return "safe simulation, no exchange order is sent"
     if mode == "PAPER":
-        return "paper trade lokal"
+        return "local paper trading"
     if mode == "BINANCE_DEMO":
-        return "order demo exchange aktif"
-    return "eksekusi mati"
+        return "demo exchange execution is active"
+    return "execution is disabled"
 
 
 def _short_reason(text: str | None, limit: int = 120) -> str:
@@ -102,8 +102,8 @@ def _format_guard_status() -> str:
     try:
         guard = market_guard.evaluate_market()
     except Exception as exc:
-        logger.exception("Gagal membaca market guard untuk /status: %s", exc)
-        return "Market Guard: ERROR membaca data market"
+        logger.exception("Failed to read market guard for /status: %s", exc)
+        return "Market Guard: ERROR reading market data"
 
     label = "BLOCK" if guard.get("bad") else "CLEAR"
     metrics = guard.get("metrics") or {}
@@ -127,19 +127,19 @@ def _format_queue_status() -> str:
     try:
         active = order_queue.list_active_queue()
     except Exception as exc:
-        logger.exception("Gagal membaca queue untuk /status: %s", exc)
-        return "Queue: ERROR membaca antrian"
+        logger.exception("Failed to read queue for /status: %s", exc)
+        return "Queue: ERROR reading queue"
     live = sum(1 for row in active if row.get("status") == "queued")
     sim = sum(1 for row in active if row.get("status") == "queued_sim")
-    return f"Queue: {len(active)} aktif ({live} exchange / {sim} simulasi)"
+    return f"Queue: {len(active)} active ({live} exchange / {sim} simulated)"
 
 
 def _format_learning_status() -> str:
     try:
         perf = performance.build_performance_dashboard()
     except Exception as exc:
-        logger.exception("Gagal membaca performance untuk /status: %s", exc)
-        return "Learning Guard: ERROR membaca performa"
+        logger.exception("Failed to read performance for /status: %s", exc)
+        return "Learning Guard: ERROR reading performance"
 
     summary = perf.get("closed_summary") or {}
     setups = perf.get("setups") or []
@@ -179,7 +179,7 @@ def _format_learning_status() -> str:
 def _format_last_signal() -> str:
     last = journal.get_last_signal()
     if not last:
-        return "Last plan: belum ada"
+        return "Last plan: none yet"
     return (
         "Last plan: "
         f"#{last.get('id')} {last.get('side', '-')} "
@@ -257,7 +257,7 @@ def _format_account_status() -> str:
         f"Balance: {_fmt(data['balance'], 4)} USDT\n"
         f"Available: {_fmt(data['available'], 4)} USDT\n"
         f"Equity est: {_fmt(data['equity_estimate'], 4)} USDT\n\n"
-        f"Open: {open_data['count']} posisi | notional {_fmt(open_data['notional'], 4)} | "
+        f"Open: {open_data['count']} position(s) | notional {_fmt(open_data['notional'], 4)} | "
         f"risk {_fmt(open_data['risk_amount'], 4)} | uPnL {_fmt(open_data['unrealized_pnl'], 4)}\n"
         f"Queue: {queue['count']} entry | planned risk {_fmt(queue['risk_amount'], 4)}\n\n"
         f"Closed all: win {closed['wins']} (+{_fmt(closed['gross_profit'], 4)}) | "
@@ -271,25 +271,25 @@ def _entry_help() -> str:
         "Format:\n"
         "/entry short ENTRY SL TP\n"
         "/entry long ENTRY SL TP\n\n"
-        "Contoh short:\n"
+        "Short example:\n"
         "/entry short 62500 63000 61500\n\n"
-        "Contoh long:\n"
+        "Long example:\n"
         "/entry long 62500 62000 63500\n\n"
-        "Manual entry tetap dicek risk manager dan market guard.\n"
-        "/force_entry melewati market guard dan tidak ikut cancel guard."
+        "Manual entry is still checked by the risk manager and market guard.\n"
+        "/force_entry bypasses the market guard and is not canceled by the guard job."
     )
 
 
 def _help_text() -> str:
     return (
-        "Aku bisa bantu lewat chat biasa:\n"
-        "- status / market / saldo / posisi\n"
+        "I can help through normal chat:\n"
+        "- status / market / account / positions\n"
         "- entry short 62500 63000 61500\n"
         "- entry long 62500 62000 63500\n"
         "- close 3\n"
         "- set tpsl 3 62000 63500\n"
         "- mode dry | paper | demo | stop\n\n"
-        "Slash command juga bisa: /status /market /positions /saldo /entry /force_entry."
+        "Slash commands also work: /status /market /positions /account /entry /force_entry."
     )
 
 
@@ -352,7 +352,7 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def cmd_mode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
         await update.message.reply_text(
-            f"Mode sekarang: {current_mode()}\nKetik: /mode dry | paper | demo | stop"
+            f"Current mode: {current_mode()}\nType: /mode dry | paper | demo | stop"
         )
         return
     try:
@@ -360,7 +360,7 @@ async def cmd_mode(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     except ValueError as exc:
         await update.message.reply_text(str(exc))
         return
-    await update.message.reply_text(f"Mode diubah ke {settings['mode']}.")
+    await update.message.reply_text(f"Mode changed to {settings['mode']}.")
 
 
 async def _handle_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
@@ -377,10 +377,10 @@ async def _handle_entry(update: Update, ctx: ContextTypes.DEFAULT_TYPE,
             side, entry, stop_loss, take_profit, respect_guard=respect_guard
         )
     except ValueError as exc:
-        await update.message.reply_text(f"Input tidak valid: {exc}\n\n{_entry_help()}")
+        await update.message.reply_text(f"Invalid input: {exc}\n\n{_entry_help()}")
         return
     except Exception as exc:
-        logger.exception("Manual entry gagal: %s", exc)
+        logger.exception("Manual entry failed: %s", exc)
         await update.message.reply_text(f"Manual entry error: {exc}")
         return
 
@@ -402,11 +402,11 @@ async def cmd_close(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     try:
         trade_id = int(ctx.args[0])
     except ValueError:
-        await update.message.reply_text("Trade id harus angka.")
+        await update.message.reply_text("Trade id must be numeric.")
         return
     result = position_manager.close_trade_now(trade_id, reason="telegram")
     if not result.get("ok"):
-        await update.message.reply_text(result.get("message", "Close gagal."))
+        await update.message.reply_text(result.get("message", "Close failed."))
         return
     trade = result["trade"]
     await update.message.reply_text(
@@ -428,17 +428,17 @@ async def cmd_set_tpsl(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(str(exc))
         return
     if not trade:
-        await update.message.reply_text("Trade tidak ditemukan.")
+        await update.message.reply_text("Trade not found.")
         return
     await update.message.reply_text(
-        f"TP/SL trade #{trade_id} diubah: SL {_fmt(stop_loss, 2)} | TP {_fmt(take_profit, 2)}"
+        f"TP/SL for trade #{trade_id} updated: SL {_fmt(stop_loss, 2)} | TP {_fmt(take_profit, 2)}"
     )
 
 async def cmd_balance(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     bal = binance_client.get_balance()
     if not bal:
         await update.message.reply_text(
-            f"Balance tidak tersedia. Equity awal (config): {config.INITIAL_EQUITY}"
+            f"Balance is unavailable. Initial equity from config: {config.INITIAL_EQUITY}"
         )
         return
     await update.message.reply_text(f"Balance Binance Futures Testnet: {bal}")
@@ -448,25 +448,25 @@ async def cmd_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = (update.message.text or "").strip()
     low = text.lower()
     try:
-        if any(word in low for word in ("bantuan", "help", "menu", "apa aja")):
+        if any(word in low for word in ("help", "menu")):
             await update.message.reply_text(_help_text())
             return
-        if any(word in low for word in ("status", "kondisi bot", "bot gimana")):
+        if "status" in low:
             await cmd_status(update, ctx)
             return
-        if any(word in low for word in ("market", "harga", "trend", "rsi")):
+        if any(word in low for word in ("market", "trend", "rsi")):
             await cmd_market(update, ctx)
             return
-        if any(word in low for word in ("saldo", "balance", "equity", "modal")):
+        if any(word in low for word in ("account", "balance", "equity")):
             await cmd_account(update, ctx)
             return
-        if any(word in low for word in ("posisi", "position", "open trade")):
+        if any(word in low for word in ("positions", "position", "open trade")):
             await cmd_positions(update, ctx)
             return
         if low.startswith("mode "):
             try:
                 settings = runtime_settings.set_mode(low.split()[1])
-                await update.message.reply_text(f"Mode diubah ke {settings['mode']}.")
+                await update.message.reply_text(f"Mode changed to {settings['mode']}.")
             except (IndexError, ValueError) as exc:
                 await update.message.reply_text(str(exc))
             return
@@ -481,7 +481,7 @@ async def cmd_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                         f"PnL {_fmt(trade.get('pnl'), 4)} | {trade.get('status')}"
                     )
                 else:
-                    await update.message.reply_text(result.get("message", "Close gagal."))
+                    await update.message.reply_text(result.get("message", "Close failed."))
             return
         if low.startswith("set tpsl "):
             nums = _numbers(text)
@@ -492,10 +492,10 @@ async def cmd_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                     await update.message.reply_text(str(exc))
                     return
                 if not trade:
-                    await update.message.reply_text("Trade tidak ditemukan.")
+                    await update.message.reply_text("Trade not found.")
                     return
                 await update.message.reply_text(
-                    f"TP/SL trade #{int(nums[0])} diubah: SL {_fmt(nums[1], 2)} | TP {_fmt(nums[2], 2)}"
+                    f"TP/SL for trade #{int(nums[0])} updated: SL {_fmt(nums[1], 2)} | TP {_fmt(nums[2], 2)}"
                 )
                 return
         if low.startswith("entry ") or low.startswith("force entry "):
@@ -508,21 +508,21 @@ async def cmd_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                         side, nums[0], nums[1], nums[2], respect_guard=not force
                     )
                 except ValueError as exc:
-                    await update.message.reply_text(f"Input tidak valid: {exc}\n\n{_entry_help()}")
+                    await update.message.reply_text(f"Invalid input: {exc}\n\n{_entry_help()}")
                     return
                 await update.message.reply_text(_entry_result_message(result))
                 return
         await update.message.reply_text(
-            "Aku nangkep pesannya, tapi belum yakin aksinya. "
-            "Coba ketik: status, market, saldo, posisi, atau bantuan."
+            "I understood the message, but I am not sure which action you want. "
+            "Try typing: status, market, account, positions, or help."
         )
     except Exception as exc:
         logger.exception("Chat handler error: %s", exc)
-        await update.message.reply_text(f"Ada error saat memproses chat: {exc}")
+        await update.message.reply_text(f"An error occurred while processing the chat: {exc}")
 
 async def cmd_last_signal(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     sig = journal.get_last_signal()
-    await update.message.reply_text(str(sig) if sig else "Belum ada sinyal.")
+    await update.message.reply_text(str(sig) if sig else "No signal yet.")
 
 async def cmd_daily_report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     stats = journal.get_today_stats()
@@ -542,7 +542,7 @@ async def cmd_approve(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             plan_id = None
     if plan_id is None:
-        await update.message.reply_text("Format: /approve_<id> atau /approve <id>")
+        await update.message.reply_text("Format: /approve_<id> or /approve <id>")
         return
     journal.update_trade_plan_status(plan_id, "approved")
     result = execute_plan(plan_id)
@@ -556,10 +556,10 @@ async def cmd_reject(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             plan_id = None
     if plan_id is None:
-        await update.message.reply_text("Format: /reject_<id> atau /reject <id>")
+        await update.message.reply_text("Format: /reject_<id> or /reject <id>")
         return
     journal.update_trade_plan_status(plan_id, "rejected_manual")
-    await update.message.reply_text(f"Trade plan {plan_id} ditolak.")
+    await update.message.reply_text(f"Trade plan {plan_id} rejected.")
 
 
 async def cmd_inline_decision(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -577,17 +577,17 @@ def _parse_id(text: str, prefix: str) -> int | None:
         return None
 
 def build_application() -> Application | None:
-    """Bangun aplikasi Telegram. Return None bila tidak dikonfigurasi."""
+    """Build the Telegram application. Return None when it is not configured."""
     global _application
     if not config.has_telegram():
-        logger.warning("TELEGRAM_BOT_TOKEN/CHAT_ID kosong, bot tidak aktif.")
+        logger.warning("TELEGRAM_BOT_TOKEN/CHAT_ID is empty; bot is inactive.")
         return None
     app = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler(["start", "help"], cmd_help))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("market", cmd_market))
     app.add_handler(CommandHandler(["positions", "position"], cmd_positions))
-    app.add_handler(CommandHandler(["saldo", "account"], cmd_account))
+    app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("mode", cmd_mode))
     app.add_handler(CommandHandler("entry", cmd_entry))
     app.add_handler(CommandHandler("force_entry", cmd_force_entry))

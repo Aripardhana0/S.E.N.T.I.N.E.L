@@ -1,4 +1,4 @@
-"""Client untuk Binance USD-M Futures Testnet/Demo."""
+"""Client for Binance USD-M Futures Testnet/Demo."""
 import hashlib
 import hmac
 import logging
@@ -48,7 +48,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("get_ticker gagal: %s", exc)
+            logger.error("get_ticker failed: %s", exc)
             return None
 
     def get_candles(self, symbol: str, interval: str = "15m", limit: int = 200) -> list:
@@ -61,7 +61,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("get_candles gagal (%s %s): %s", symbol, interval, exc)
+            logger.error("get_candles failed (%s %s): %s", symbol, interval, exc)
             return []
 
     def get_balance(self) -> list | None:
@@ -77,7 +77,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("get_balance gagal: %s", exc)
+            logger.error("get_balance failed: %s", exc)
             return None
 
     def set_leverage(self, symbol: str, leverage: int) -> dict | None:
@@ -93,7 +93,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("set_leverage gagal: %s", exc)
+            logger.error("set_leverage failed: %s", exc)
             return None
 
     def place_limit_order(
@@ -105,7 +105,7 @@ class BinanceClient:
         reduce_only: bool = False,
     ) -> dict | None:
         if not config.has_binance_credentials():
-            logger.warning("Kredensial Binance kosong, order dibatalkan.")
+            logger.warning("Binance credentials are empty; order canceled.")
             return None
         params = {
             "symbol": symbol,
@@ -127,7 +127,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("place_limit_order gagal: %s", exc)
+            logger.error("place_limit_order failed: %s", exc)
             return None
 
     def place_market_order(
@@ -138,7 +138,7 @@ class BinanceClient:
         reduce_only: bool = False,
     ) -> dict | None:
         if not config.has_binance_credentials():
-            logger.warning("Kredensial Binance kosong, market order dibatalkan.")
+            logger.warning("Binance credentials are empty; market order canceled.")
             return None
         params = {
             "symbol": symbol,
@@ -158,7 +158,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("place_market_order gagal: %s", exc)
+            logger.error("place_market_order failed: %s", exc)
             return None
 
     def get_order(self, symbol: str, order_id: str | int) -> dict | None:
@@ -174,7 +174,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("get_order gagal: %s", exc)
+            logger.error("get_order failed: %s", exc)
             return None
 
     def get_open_orders(self, symbol: str) -> list:
@@ -190,7 +190,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("get_open_orders gagal: %s", exc)
+            logger.error("get_open_orders failed: %s", exc)
             return []
 
     def get_position_risk(self, symbol: str | None = None) -> list:
@@ -210,7 +210,7 @@ class BinanceClient:
                 data = resp.json()
                 return data if isinstance(data, list) else [data]
         except Exception as exc:
-            logger.error("get_position_risk gagal: %s", exc)
+            logger.error("get_position_risk failed: %s", exc)
             return []
 
     def cancel_order(self, symbol: str, order_id: str | int) -> dict | None:
@@ -226,7 +226,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("cancel_order gagal: %s", exc)
+            logger.error("cancel_order failed: %s", exc)
             return None
 
     def cancel_all_open_orders(self, symbol: str) -> dict | None:
@@ -242,7 +242,7 @@ class BinanceClient:
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:
-            logger.error("cancel_all_open_orders gagal: %s", exc)
+            logger.error("cancel_all_open_orders failed: %s", exc)
             return None
 
 

@@ -1,4 +1,4 @@
-"""Order Queue + Cancel Manager untuk auto entry Binance."""
+"""Order Queue + Cancel Manager for Binance auto entry."""
 import logging
 
 from app import journal
@@ -23,13 +23,13 @@ def _plan_to_setup(plan: dict) -> dict:
 
 
 def enqueue_entry(plan_id: int) -> dict:
-    """Pasang LIMIT order untuk plan yang sudah lolos guard, risk, dan AI."""
+    """Place a LIMIT order for a plan that passed guard, risk, and AI checks."""
     plan = journal.get_trade_plan(plan_id)
     if not plan:
-        return {"ok": False, "message": "Plan tidak ditemukan."}
+        return {"ok": False, "message": "Plan not found."}
     if not plan["risk_allowed"]:
         journal.update_trade_plan_status(plan_id, "rejected_risk")
-        return {"ok": False, "message": "Risk menolak, tidak diantrikan."}
+        return {"ok": False, "message": "Risk rejected the plan; it was not queued."}
 
     symbol = config.SYMBOL
     side = "SELL" if plan["side"] == "short" else "BUY"
@@ -40,32 +40,32 @@ def enqueue_entry(plan_id: int) -> dict:
     if mode in ("DRY_RUN", "PAPER"):
         journal.set_order_id(plan_id, f"SIM-{plan_id}")
         journal.update_trade_plan_status(plan_id, "queued_sim")
-        journal.log_event("INFO", f"{mode}: antrian simulasi plan {plan_id}.")
-        return {"ok": True, "message": f"{mode}: antrian simulasi dibuat.", "mode": mode}
+        journal.log_event("INFO", f"{mode}: simulated queue for plan {plan_id}.")
+        return {"ok": True, "message": f"{mode}: simulated queue created.", "mode": mode}
 
     if mode == "BINANCE_DEMO":
         if not config.has_binance_credentials():
-            return {"ok": False, "message": "Kredensial Binance belum lengkap."}
+            return {"ok": False, "message": "Binance credentials are incomplete."}
         binance_client.set_leverage(symbol, config.MAX_LEVERAGE)
         resp = binance_client.place_limit_order(symbol, side, qty, price)
         if not resp or "orderId" not in resp:
             journal.update_trade_plan_status(plan_id, "queue_failed")
-            journal.log_event("ERROR", f"Antri gagal plan {plan_id}: {resp}")
-            return {"ok": False, "message": f"Antri gagal: {resp}"}
+            journal.log_event("ERROR", f"Queue failed for plan {plan_id}: {resp}")
+            return {"ok": False, "message": f"Queue failed: {resp}"}
         journal.set_order_id(plan_id, str(resp["orderId"]))
         journal.update_trade_plan_status(plan_id, "queued")
-        journal.log_event("INFO", f"Antrian Binance terpasang plan {plan_id}.")
+        journal.log_event("INFO", f"Binance queue placed for plan {plan_id}.")
         return {
             "ok": True,
-            "message": f"Antrian terpasang (orderId={resp['orderId']}).",
+            "message": f"Queue placed (orderId={resp['orderId']}).",
             "mode": mode,
         }
 
-    return {"ok": False, "message": "Eksekusi dinonaktifkan (mode DISABLED)."}
+    return {"ok": False, "message": "Execution is disabled (mode DISABLED)."}
 
 
 def cancel_all_pending(reason: str = "market guard") -> dict:
-    """Batalkan semua antrian yang belum terisi."""
+    """Cancel all queue items that have not been filled yet."""
     active = journal.list_plans_by_status(list(ACTIVE_STATUSES))
     mode = current_mode()
 
@@ -75,36 +75,36 @@ def cancel_all_pending(reason: str = "market guard") -> dict:
         if plan.get("setup_type") == "manual_telegram_force":
             journal.log_event(
                 "INFO",
-                f"Plan {plan['id']} tidak dibatalkan oleh guard karena force entry.",
+                f"Plan {plan['id']} was not canceled by the guard because it is a force entry.",
             )
             skipped += 1
             continue
         if mode == "BINANCE_DEMO" and plan.get("binance_order_id"):
             binance_client.cancel_order(config.SYMBOL, plan["binance_order_id"])
         journal.update_trade_plan_status(plan["id"], "canceled_market_guard")
-        journal.log_event("INFO", f"Plan {plan['id']} dibatalkan ({reason}).")
+        journal.log_event("INFO", f"Plan {plan['id']} canceled ({reason}).")
         canceled += 1
     if canceled:
-        logger.warning("Cancel %s antrian. Alasan: %s", canceled, reason)
+        logger.warning("Canceled %s queue item(s). Reason: %s", canceled, reason)
     return {"ok": True, "canceled": canceled, "skipped_force": skipped, "reason": reason}
 
 
 def cancel_plan(plan_id: int, reason: str = "manual") -> dict:
     plan = journal.get_trade_plan(plan_id)
     if not plan:
-        return {"ok": False, "message": "Plan tidak ditemukan."}
+        return {"ok": False, "message": "Plan not found."}
     if plan.get("status") not in ACTIVE_STATUSES:
-        return {"ok": False, "message": f"Plan status {plan.get('status')} bukan antrian aktif."}
+        return {"ok": False, "message": f"Plan status {plan.get('status')} is not an active queue item."}
     mode = current_mode()
     if mode == "BINANCE_DEMO" and plan.get("binance_order_id"):
         binance_client.cancel_order(config.SYMBOL, plan["binance_order_id"])
     journal.update_trade_plan_status(plan_id, "canceled_manual")
-    journal.log_event("INFO", f"Plan {plan_id} dibatalkan ({reason}).")
+    journal.log_event("INFO", f"Plan {plan_id} canceled ({reason}).")
     return {"ok": True, "canceled": 1, "plan_id": plan_id}
 
 
 def sync_fills() -> dict:
-    """Cek status antrian Binance dan catat trade saat FILLED."""
+    """Check Binance queue status and record trades when FILLED."""
     if current_mode() != "BINANCE_DEMO":
         return {"ok": True, "filled": 0, "checked": 0}
 
@@ -124,7 +124,7 @@ def sync_fills() -> dict:
                 "BINANCE_DEMO", str(order_id)
             )
             journal.update_trade_plan_status(plan["id"], "filled")
-            journal.log_event("INFO", f"Antrian plan {plan['id']} FILLED.")
+            journal.log_event("INFO", f"Queue plan {plan['id']} FILLED.")
             filled += 1
         elif status in ("CANCELED", "EXPIRED", "REJECTED"):
             journal.update_trade_plan_status(plan["id"], f"closed_{status.lower()}")

@@ -1,4 +1,4 @@
-"""Market Guard deterministik untuk blokir entry dan cancel antrian."""
+"""Deterministic Market Guard for blocking entries and canceling queues."""
 import logging
 
 from app.config import config
@@ -9,14 +9,14 @@ logger = logging.getLogger("market_guard")
 
 
 def evaluate_market() -> dict:
-    """Kembalikan status market saat ini: bad, reasons, metrics."""
+    """Return the current market status: bad, reasons, metrics."""
     df = add_indicators(load_candles_df(config.TIMEFRAME_SIGNAL, limit=200))
     reasons: list[str] = []
 
     if df is None or df.empty or len(df) < 50:
-        return {"bad": True, "reasons": ["Data candle tidak cukup."], "metrics": {}}
+        return {"bad": True, "reasons": ["Not enough candle data."], "metrics": {}}
     if df["atr14"].isna().iloc[-1]:
-        return {"bad": True, "reasons": ["Indikator belum matang."], "metrics": {}}
+        return {"bad": True, "reasons": ["Indicators are not ready yet."], "metrics": {}}
 
     last = df.iloc[-1]
     prev = df.iloc[-2]
@@ -41,7 +41,7 @@ def evaluate_market() -> dict:
     prev_close = float(prev["close"]) or 1.0
     move_pct = abs(float(last["close"]) - prev_close) / prev_close * 100
     if move_pct >= config.GUARD_MOVE_PCT:
-        reasons.append(f"Lonjakan harga {move_pct:.2f}% (>= {config.GUARD_MOVE_PCT}%).")
+        reasons.append(f"Price spike {move_pct:.2f}% (>= {config.GUARD_MOVE_PCT}%).")
 
     metrics = {
         "atr_ratio": round(atr_ratio, 2),
@@ -51,5 +51,5 @@ def evaluate_market() -> dict:
     }
     bad = bool(reasons)
     if bad:
-        logger.warning("Market buruk: %s | %s", reasons, metrics)
+        logger.warning("Bad market: %s | %s", reasons, metrics)
     return {"bad": bad, "reasons": reasons, "metrics": metrics}

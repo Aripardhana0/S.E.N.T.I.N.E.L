@@ -1,13 +1,13 @@
 # BTC Demo Trading AI Agent - Auto
 
-AI-assisted trading agent untuk belajar dan demo/paper trading BTCUSDT di
-Binance Demo USD-M Futures. Branch `auto` menambahkan auto entry LIMIT order,
-market guard deterministik, cancel semua antrian pending saat market buruk, dan
-sync fill berkala. Bukan nasihat finansial.
+AI-assisted trading agent for BTCUSDT demo/paper trading on Binance Demo USD-M
+Futures. The `auto` branch adds automatic LIMIT entry, deterministic market
+guard, pending queue cancellation during unsafe markets, periodic fill sync, and
+TP/SL exit tracking. This is not financial advice.
 
-## Pengaman Default
+## Default Safety
 
-Default tetap aman:
+The default mode stays conservative:
 
 ```ini
 DRY_RUN=true
@@ -17,25 +17,27 @@ AUTO_ENTRY=true
 GUARD_ENABLED=true
 ```
 
-Jangan gunakan API live tanpa audit penuh. Kredensial yang dimaksud di branch ini
-adalah Binance Demo Futures dari `demo.binance.com`, bukan akun live.
+Do not use live API keys without a full audit. The intended credentials for this
+branch are Binance Demo Futures credentials from `demo.binance.com`, not live
+account keys.
 
-## Cara Kerja
+## How It Works
 
-1. Scheduler mengambil ticker dan candle Binance, lalu menyimpan ke SQLite.
-2. Strategy mencari setup setiap 15 menit.
-3. Market Guard mengecek kondisi buruk sebelum entry.
-4. Risk Manager deterministik menjadi gerbang utama.
-5. Learning Guard mengecek performa setup dari closed trade historis.
-6. AI Reviewer hanya dipanggil setelah guard dan risk lolos.
-7. Jika AI tidak `reject` dan `AUTO_ENTRY=true`, sistem memasang LIMIT order.
-8. Market Guard berjalan tiap 60 detik dan membatalkan semua antrian pending saat
-   kondisi market buruk.
-9. Sync fills berjalan tiap 60 detik untuk menandai order `FILLED`.
-10. Position Manager memantau trade open dan menutupnya saat TP/SL tersentuh,
-    lalu mencatat `pnl`, `closed_at`, dan win/loss.
+1. The scheduler fetches Binance ticker and candles, then stores them in SQLite.
+2. The strategy checks for setups every 15 minutes.
+3. Market Guard blocks entries when market conditions are unsafe.
+4. The deterministic Risk Manager is the main execution gate.
+5. Learning Guard checks setup performance from historical closed trades.
+6. AI Reviewer is called only after guard and risk checks pass.
+7. If AI does not return `reject` and `AUTO_ENTRY=true`, the system places a
+   LIMIT order.
+8. Market Guard runs every 60 seconds and cancels pending queues during unsafe
+   market conditions.
+9. Sync fills runs every 60 seconds and marks orders as `FILLED`.
+10. Position Manager monitors open trades, closes them when TP/SL is touched,
+    and records `pnl`, `closed_at`, and win/loss results.
 
-Urutan prioritas: Market Guard, Learning Guard, dan Risk Manager selalu di atas AI.
+Priority order: Market Guard, Learning Guard, and Risk Manager always sit above AI.
 
 ## Environment
 
@@ -95,25 +97,25 @@ LEARNING_RR_BUFFER=0.25
 
 ## Learning Guard
 
-Learning Guard bukan model ML dan tidak melatih AI. Sistem ini membaca trade yang
-sudah `closed` dan punya `pnl`, lalu memakai aturan deterministik:
+Learning Guard is not an ML model and does not train the AI. It reads trades that
+are already `closed` and have `pnl`, then applies deterministic rules:
 
-- Minimal `LEARNING_MIN_TRADES` closed trade sebelum blok winrate aktif.
-- Setup diblok jika winrate <= `LEARNING_BLOCK_WINRATE`.
-- Setup diblok jika loss streak >= `LEARNING_BLOCK_LOSS_STREAK`.
-- Jika winrate < `LEARNING_REDUCE_WINRATE`, risk dikurangi ke
-  `LEARNING_RISK_MULTIPLIER` dan minimum RR dinaikkan sebesar
-  `LEARNING_RR_BUFFER`.
-- Risk tidak pernah dinaikkan otomatis melebihi `MAX_RISK_PER_TRADE`.
+- At least `LEARNING_MIN_TRADES` closed trades are required before winrate
+  blocking becomes active.
+- A setup is blocked when winrate <= `LEARNING_BLOCK_WINRATE`.
+- A setup is blocked when loss streak >= `LEARNING_BLOCK_LOSS_STREAK`.
+- If winrate < `LEARNING_REDUCE_WINRATE`, risk is reduced to
+  `LEARNING_RISK_MULTIPLIER` and minimum RR is raised by `LEARNING_RR_BUFFER`.
+- Risk is never increased automatically above `MAX_RISK_PER_TRADE`.
 
-Untuk membuat data pembelajaran, trade harus ditutup dan punya PnL. Kalau belum
-ada auto close, catat manual lewat API:
+To generate learning data, trades must close and have PnL. If auto-close has not
+closed a trade yet, record it manually through the API:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/trades/1/close?exit_price=62000"
 ```
 
-Atau langsung isi PnL:
+Or write PnL directly:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/trades/1/close?pnl=0.12"
@@ -128,9 +130,9 @@ docker compose up -d
 docker compose logs -f agent
 ```
 
-Mode aman pertama: biarkan `DRY_RUN=true` dan `EXECUTION_ENABLED=false`.
+First safe mode: keep `DRY_RUN=true` and `EXECUTION_ENABLED=false`.
 
-Untuk order nyata di Binance Futures Testnet:
+For real order placement on Binance Futures Testnet/Demo:
 
 ```ini
 DRY_RUN=false
@@ -143,87 +145,88 @@ GUARD_ENABLED=true
 
 ## API Endpoints
 
-| Endpoint | Metode | Deskripsi |
+| Endpoint | Method | Description |
 | --- | --- | --- |
-| `/` | GET | Info app dan mode |
-| `/login` | GET/POST | Halaman login dashboard dan proses login |
-| `/logout` | POST | Hapus session dashboard |
+| `/` | GET | App info and mode |
+| `/login` | GET/POST | Dashboard login page and login action |
+| `/logout` | POST | Clear the dashboard session |
 | `/health` | GET | Health check |
-| `/status` | GET | Mode, symbol, guard, dan stats |
-| `/account` | GET | Saldo/equity, open risk, queued risk, win/loss nominal |
-| `/settings` | GET | Snapshot mode dan switch runtime |
-| `/settings/mode` | POST | Ubah mode: `DRY_RUN`, `PAPER`, `BINANCE_DEMO`, `DISABLED` |
-| `/settings/toggle` | POST | Ubah switch runtime seperti `AUTO_ENTRY` atau `GUARD_ENABLED` |
-| `/settings/env` | GET/POST | Baca dan update semua field `.env` dari dashboard |
-| `/last-signal` | GET | Sinyal terakhir |
-| `/trade-plans` | GET | Daftar trade plan |
-| `/trades` | GET | Daftar trade |
-| `/trades/{id}/close` | POST | Tutup trade manual dan catat PnL |
-| `/trades/{id}/close-now` | POST | Close posisi open dengan harga market/ticker |
-| `/trades/{id}/levels` | POST | Ubah TP/SL posisi open |
-| `/performance` | GET | Winrate, setup performance, daily evaluation |
-| `/market-guard` | GET | Evaluasi market guard saat ini |
-| `/queue` | GET | Daftar antrian aktif |
-| `/queue/{id}/cancel` | POST | Cancel satu antrian |
-| `/cancel-all` | POST | Panic button cancel semua antrian |
-| `/sync-fills` | POST | Paksa sync status order |
-| `/admin/clear-local-data` | POST | Clear jurnal lokal dengan konfirmasi `CLEAR_LOCAL_DATA` |
-| `/positions` | GET | Daftar posisi lokal yang masih open |
-| `/logs` | GET | Daftar log lokal terbaru |
-| `/logs/{id}` | DELETE | Hapus satu log lokal |
-| `/approve/{id}` | POST | Approval manual legacy untuk DRY_RUN/PAPER |
-| `/reject/{id}` | POST | Reject trade plan |
+| `/status` | GET | Mode, symbol, guard, and daily stats |
+| `/account` | GET | Balance/equity, open risk, queued risk, and win/loss amounts |
+| `/settings` | GET | Runtime mode and switch snapshot |
+| `/settings/mode` | POST | Change mode: `DRY_RUN`, `PAPER`, `BINANCE_DEMO`, `DISABLED` |
+| `/settings/toggle` | POST | Change runtime switches such as `AUTO_ENTRY` or `GUARD_ENABLED` |
+| `/settings/env` | GET/POST | Read and update all `.env` fields from the dashboard |
+| `/last-signal` | GET | Last signal |
+| `/trade-plans` | GET | Trade plan list |
+| `/trades` | GET | Trade list |
+| `/trades/{id}/close` | POST | Manually close a trade and record PnL |
+| `/trades/{id}/close-now` | POST | Close an open position using market/ticker price |
+| `/trades/{id}/levels` | POST | Update TP/SL for an open position |
+| `/performance` | GET | Winrate, setup performance, and daily evaluation |
+| `/market-guard` | GET | Current market guard evaluation |
+| `/queue` | GET | Active queue list |
+| `/queue/{id}/cancel` | POST | Cancel one queued item |
+| `/cancel-all` | POST | Panic button to cancel all queued items |
+| `/sync-fills` | POST | Force order/fill sync |
+| `/admin/clear-local-data` | POST | Clear selected local journal data with `CLEAR_LOCAL_DATA` confirmation |
+| `/positions` | GET | Local open positions |
+| `/logs` | GET | Latest local logs |
+| `/logs/{id}` | DELETE | Delete one local log |
+| `/approve/{id}` | POST | Legacy manual approval for DRY_RUN/PAPER |
+| `/reject/{id}` | POST | Reject a trade plan |
 
 ## Telegram Commands
 
-| Command | Deskripsi |
+| Command | Description |
 | --- | --- |
-| `/status` | Ringkasan mode, guard, queue, learning, dan sinyal terakhir |
-| `/market` | Harga, trend, RSI/ATR, dan market guard |
-| `/positions` | Posisi lokal open dan posisi Binance Demo jika aktif |
-| `/saldo` | Saldo/equity, open risk, queued risk, dan win/loss nominal |
-| `/mode dry|paper|demo|stop` | Ubah mode runtime dan simpan ke `.env` |
-| `/entry short ENTRY SL TP` | Buat entry manual short lewat Telegram |
-| `/entry long ENTRY SL TP` | Buat entry manual long lewat Telegram |
-| `/force_entry short ENTRY SL TP` | Buat entry manual yang melewati market guard, risk tetap dicek |
-| `/close TRADE_ID` | Close posisi open |
-| `/set_tpsl TRADE_ID SL TP` | Ubah SL/TP posisi open |
-| `/balance` | Balance Binance Demo/Testnet |
-| `/daily_report` | Ringkasan harian |
+| `/status` | Mode, guard, queue, learning, and last signal summary |
+| `/market` | Price, trend, RSI/ATR, and market guard |
+| `/positions` | Local open positions and Binance Demo positions when active |
+| `/account` | Balance/equity, open risk, queued risk, and win/loss amounts |
+| `/mode dry|paper|demo|stop` | Change runtime mode and save it to `.env` |
+| `/entry short ENTRY SL TP` | Create a manual short entry from Telegram |
+| `/entry long ENTRY SL TP` | Create a manual long entry from Telegram |
+| `/force_entry short ENTRY SL TP` | Create a manual entry that bypasses Market Guard, while risk is still checked |
+| `/close TRADE_ID` | Close an open position |
+| `/set_tpsl TRADE_ID SL TP` | Update SL/TP for an open position |
+| `/balance` | Binance Demo/Testnet balance |
+| `/daily_report` | Daily summary |
 
-Contoh:
+Examples:
 
 ```text
 /entry short 62500 63000 61500
 /entry long 62500 62000 63500
-saldo
-market gimana
+account
+market
 close 3
 set tpsl 3 62000 63500
 ```
 
-Entry manual tetap melewati risk manager. `/force_entry` melewati market guard
-dan tidak ikut dibatalkan job guard, tapi tidak melewati risk manager.
+Manual entries still pass through the risk manager. `/force_entry` bypasses the
+market guard and is not canceled by the guard job, but it does not bypass risk.
 
-Dashboard runtime controls mengubah mode proses yang sedang berjalan dan menulis
-balik ke `.env`. Di Docker, `docker-compose.yml` me-mount `./.env:/app/.env`
-agar perubahan itu ikut tersimpan di host.
+Dashboard runtime controls change the running process mode and write changes
+back to `.env`. In Docker, `docker-compose.yml` mounts `./.env:/app/.env` so
+those changes are persisted on the host.
 
-Dashboard dilindungi login sederhana dengan cookie session `HttpOnly`. Default
-username adalah `arip`; password default mengikuti kredensial operator yang
-diminta untuk deploy ini. Untuk produksi, isi `DASHBOARD_PASSWORD` atau
-`DASHBOARD_PASSWORD_HASH`, serta `DASHBOARD_SESSION_SECRET` di `.env`.
+The dashboard is protected by a simple login using an `HttpOnly` session cookie.
+The default username is `arip`; the default password follows the operator
+credential requested for this deployment. For production, set
+`DASHBOARD_PASSWORD` or `DASHBOARD_PASSWORD_HASH`, and also set
+`DASHBOARD_SESSION_SECRET` in `.env`.
 
-Menu settings bisa mengubah semua field `.env`. Secret seperti API key dan
-token bisa diganti, tetapi nilai lama tidak ditampilkan di dashboard. Clear data
-lokal bisa dipilih per bagian: `trade_plans`, `trades`, `daily_stats`,
-`daily_reviews`, `logs`, dan `candles`. Fitur ini tidak menutup posisi Binance
-yang benar-benar sudah open. Di menu settings juga ada status `saving/saved/failed`
-untuk penyimpanan `.env`, serta daftar log lokal yang bisa dihapus satu per satu.
+The settings menu can edit every `.env` field. Secrets such as API keys and
+tokens can be replaced, but existing values are not displayed in the dashboard.
+Local data can be cleared per group: `trade_plans`, `trades`, `daily_stats`,
+`daily_reviews`, `logs`, and `candles`. This does not close any real open
+Binance position. The settings menu also shows `saving/saved/failed` status for
+`.env` saves and provides local logs that can be deleted one by one.
 
 ## Database
 
-Branch `auto` menambah kolom non-destruktif:
+The `auto` branch adds non-destructive columns:
 
 ```text
 trade_plans.binance_order_id
@@ -245,4 +248,4 @@ trades.close_order_id
 daily_reviews
 ```
 
-Migrasi berjalan saat startup setelah `init_db()`.
+Migration runs on startup after `init_db()`.

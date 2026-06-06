@@ -1,4 +1,4 @@
-"""Entry point FastAPI. Menyalakan DB, scheduler, dan Telegram bila aktif."""
+"""FastAPI entry point. Starts the DB, scheduler, and Telegram when enabled."""
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -169,8 +169,8 @@ def login_page(request: Request):
 @app.post("/login")
 def login(payload: LoginPayload):
     if not auth.verify_credentials(payload.username, payload.password):
-        raise HTTPException(status_code=401, detail="Username atau password salah.")
-    response = JSONResponse({"ok": True, "message": "Login berhasil."})
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    response = JSONResponse({"ok": True, "message": "Login successful."})
     response.set_cookie(
         auth.COOKIE_NAME,
         auth.create_session_token(),
@@ -183,7 +183,7 @@ def login(payload: LoginPayload):
 
 @app.post("/logout")
 def logout():
-    response = JSONResponse({"ok": True, "message": "Logout berhasil."})
+    response = JSONResponse({"ok": True, "message": "Logout successful."})
     response.delete_cookie(auth.COOKIE_NAME)
     return response
 
@@ -253,7 +253,7 @@ def update_env_settings(payload: EnvUpdatePayload):
 
 @app.get("/last-signal")
 def last_signal():
-    return journal.get_last_signal() or {"message": "belum ada sinyal"}
+    return journal.get_last_signal() or {"message": "No signal yet."}
 
 
 @app.get("/trade-plans")
@@ -276,7 +276,7 @@ def close_trade(trade_id: int, exit_price: float | None = None,
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not trade:
-        raise HTTPException(status_code=404, detail="Trade tidak ditemukan.")
+        raise HTTPException(status_code=404, detail="Trade not found.")
     return {"ok": True, "trade": trade}
 
 
@@ -284,7 +284,7 @@ def close_trade(trade_id: int, exit_price: float | None = None,
 def close_trade_now(trade_id: int):
     result = position_manager.close_trade_now(trade_id, reason="dashboard")
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("message", "Close gagal."))
+        raise HTTPException(status_code=400, detail=result.get("message", "Close failed."))
     return result
 
 
@@ -299,7 +299,7 @@ def update_trade_levels(trade_id: int, payload: LevelsPayload):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not trade:
-        raise HTTPException(status_code=404, detail="Trade tidak ditemukan.")
+        raise HTTPException(status_code=404, detail="Trade not found.")
     return {"ok": True, "trade": trade}
 
 
@@ -332,7 +332,7 @@ def logs(limit: int = 80):
 def delete_log(log_id: int):
     result = journal.delete_log(log_id)
     if not result.get("ok"):
-        raise HTTPException(status_code=404, detail=result.get("message", "Log tidak ditemukan."))
+        raise HTTPException(status_code=404, detail=result.get("message", "Log not found."))
     return result
 
 
@@ -345,7 +345,7 @@ def cancel_all():
 def cancel_queue_item(trade_plan_id: int):
     result = order_queue.cancel_plan(trade_plan_id, reason="dashboard")
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("message", "Cancel gagal."))
+        raise HTTPException(status_code=400, detail=result.get("message", "Cancel failed."))
     return result
 
 
@@ -353,7 +353,7 @@ def cancel_queue_item(trade_plan_id: int):
 def close_queue_item(trade_plan_id: int):
     result = order_queue.cancel_plan(trade_plan_id, reason="dashboard close order")
     if not result.get("ok"):
-        raise HTTPException(status_code=400, detail=result.get("message", "Close order gagal."))
+        raise HTTPException(status_code=400, detail=result.get("message", "Close order failed."))
     return result
 
 
@@ -371,7 +371,7 @@ def clear_local_data(payload: ClearLocalDataPayload):
     if payload.confirm != "CLEAR_LOCAL_DATA":
         raise HTTPException(
             status_code=400,
-            detail="Ketik CLEAR_LOCAL_DATA untuk konfirmasi clear data lokal.",
+            detail="Type CLEAR_LOCAL_DATA to confirm local data clearing.",
         )
     cancel_result = order_queue.cancel_all_pending(reason="clear local data")
     try:
@@ -385,7 +385,7 @@ def clear_local_data(payload: ClearLocalDataPayload):
         "ok": True,
         "cancel_result": cancel_result,
         "clear_result": clear_result,
-        "note": "Ini hanya membersihkan database lokal, bukan menutup posisi Binance yang sudah open.",
+        "note": "This only clears the local database; it does not close any open Binance position.",
     }
 
 
@@ -393,7 +393,7 @@ def clear_local_data(payload: ClearLocalDataPayload):
 def approve(trade_plan_id: int):
     plan = journal.get_trade_plan(trade_plan_id)
     if not plan:
-        raise HTTPException(status_code=404, detail="Trade plan tidak ditemukan.")
+        raise HTTPException(status_code=404, detail="Trade plan not found.")
     journal.update_trade_plan_status(trade_plan_id, "approved")
     return execute_plan(trade_plan_id)
 
@@ -402,6 +402,6 @@ def approve(trade_plan_id: int):
 def reject(trade_plan_id: int):
     plan = journal.get_trade_plan(trade_plan_id)
     if not plan:
-        raise HTTPException(status_code=404, detail="Trade plan tidak ditemukan.")
+        raise HTTPException(status_code=404, detail="Trade plan not found.")
     journal.update_trade_plan_status(trade_plan_id, "rejected_manual")
-    return {"ok": True, "message": f"Trade plan {trade_plan_id} ditolak."}
+    return {"ok": True, "message": f"Trade plan {trade_plan_id} rejected."}

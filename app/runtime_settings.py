@@ -210,7 +210,7 @@ def set_mode(mode: str) -> dict:
     if mode in ("STOP", "OFF"):
         mode = "DISABLED"
     if mode not in MODE_PATCHES:
-        raise ValueError("Mode harus DRY_RUN, PAPER, BINANCE_DEMO, atau DISABLED.")
+        raise ValueError("Mode must be DRY_RUN, PAPER, BINANCE_DEMO, or DISABLED.")
     values = MODE_PATCHES[mode]
     _write_env(values)
     _apply_memory(values)
@@ -220,7 +220,7 @@ def set_mode(mode: str) -> dict:
 def set_bool(key: str, value: bool) -> dict:
     key = key.upper().strip()
     if key not in BOOL_KEYS:
-        raise ValueError(f"Setting {key} tidak boleh diubah dari dashboard.")
+        raise ValueError(f"Setting {key} cannot be changed from the dashboard.")
     values = {key: "true" if bool(value) else "false"}
     _write_env(values)
     _apply_memory(values)
@@ -281,7 +281,7 @@ def update_env_values(values: dict[str, str]) -> dict:
     for key, value in values.items():
         key = key.upper().strip()
         if key not in allowed:
-            raise ValueError(f"Setting {key} tidak ada di .env/.env.example.")
+            raise ValueError(f"Setting {key} does not exist in .env/.env.example.")
         if key in SECRET_KEYS and value == "":
             continue
         value = str(value).strip()

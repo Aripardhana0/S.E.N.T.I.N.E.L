@@ -16,12 +16,12 @@ def _risk_reward(side: str, entry: float, stop_loss: float, take_profit: float) 
 def build_setup(side: str, entry: float, stop_loss: float, take_profit: float) -> dict:
     side = side.lower().strip()
     if side not in ("short", "long"):
-        raise ValueError("Side harus short atau long.")
+        raise ValueError("Side must be short or long.")
 
     if side == "short" and not (stop_loss > entry > take_profit):
-        raise ValueError("Format short wajib: SL > entry > TP.")
+        raise ValueError("Short format requires: SL > entry > TP.")
     if side == "long" and not (stop_loss < entry < take_profit):
-        raise ValueError("Format long wajib: SL < entry < TP.")
+        raise ValueError("Long format requires: SL < entry < TP.")
 
     return {
         "symbol": config.SYMBOL,

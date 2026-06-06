@@ -1,5 +1,5 @@
-"""Inisialisasi koneksi SQLite + pembuatan tabel.
-Koneksi dibuat per-operasi agar aman dipakai dari thread scheduler & FastAPI."""
+"""SQLite connection initialization and table creation.
+Connections are opened per operation so they are safe for scheduler and FastAPI threads."""
 import os
 import sqlite3
 import logging
@@ -11,7 +11,7 @@ logger = logging.getLogger("database")
 
 @contextmanager
 def get_conn():
-    """Context manager untuk koneksi SQLite. Selalu commit/rollback & close."""
+    """SQLite connection context manager. Always commits/rolls back and closes."""
     os.makedirs(os.path.dirname(config.DB_PATH), exist_ok=True)
     conn = sqlite3.connect(config.DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
@@ -25,7 +25,7 @@ def get_conn():
         conn.close()
 
 def init_db():
-    """Buat semua tabel jika belum ada."""
+    """Create all tables when they do not exist yet."""
     with get_conn() as conn:
         cur = conn.cursor()
         cur.executescript(
@@ -93,10 +93,10 @@ def init_db():
             );
             """
         )
-    logger.info("Database siap di %s", config.DB_PATH)
+    logger.info("Database ready at %s", config.DB_PATH)
 
 def migrate_brach_auto():
-    """Migrasi non-destruktif untuk branch auto."""
+    """Non-destructive migration for the auto branch."""
     with get_conn() as conn:
         cols = [
             row["name"]
@@ -152,4 +152,4 @@ def migrate_brach_auto():
             )
             """
         )
-    logger.info("Migrasi branch auto selesai.")
+    logger.info("Auto branch migration finished.")

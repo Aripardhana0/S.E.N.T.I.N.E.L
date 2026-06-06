@@ -1,5 +1,5 @@
-"""Konfigurasi terpusat. Semua nilai diambil dari environment (.env).
-Tidak ada secret yang di-hardcode di sini."""
+"""Centralized configuration. All values are loaded from environment variables.
+No secrets are hardcoded here."""
 import os
 import logging
 from dotenv import load_dotenv
@@ -16,18 +16,18 @@ def _get_float(key: str, default: float) -> float:
     try:
         return float(os.getenv(key, str(default)))
     except (TypeError, ValueError):
-        logger.warning("Nilai %s tidak valid, pakai default %s", key, default)
+        logger.warning("Invalid %s value, using default %s", key, default)
         return float(default)
 
 def _get_int(key: str, default: int) -> int:
     try:
         return int(os.getenv(key, str(default)))
     except (TypeError, ValueError):
-        logger.warning("Nilai %s tidak valid, pakai default %s", key, default)
+        logger.warning("Invalid %s value, using default %s", key, default)
         return int(default)
 
 class Config:
-    # --- Mode aplikasi ---
+    # --- Application mode ---
     APP_ENV = os.getenv("APP_ENV", "demo")
     DRY_RUN = _get_bool("DRY_RUN", True)
     PAPER_TRADE = _get_bool("PAPER_TRADE", True)

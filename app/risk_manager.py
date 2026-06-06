@@ -1,5 +1,5 @@
-"""Risk Manager DETERMINISTIC. Inilah gerbang utama.
-AI tidak boleh meng-override keputusan di sini."""
+"""DETERMINISTIC risk manager.
+AI is not allowed to override decisions made here."""
 import logging
 from datetime import datetime, timezone
 
@@ -31,9 +31,9 @@ def evaluate(setup: dict, equity: float | None = None) -> dict:
     if learning["blocked"]:
         return deny(f"Learning guard block: {learning['reason']}")
 
-    # 1. Validasi SL & TP wajib ada.
+    # 1. Stop loss and take profit are required.
     if not setup.get("stop_loss") or not setup.get("take_profit"):
-        return deny("Stop loss / take profit tidak valid.")
+        return deny("Stop loss / take profit is invalid.")
 
     entry = float(setup["entry"])
     stop = float(setup["stop_loss"])
@@ -41,38 +41,38 @@ def evaluate(setup: dict, equity: float | None = None) -> dict:
     risk_per_unit = abs(stop - entry)
     
     if risk_per_unit <= 0:
-        return deny("Risk per unit tidak valid.")
+        return deny("Risk per unit is invalid.")
 
-    # 2. Cek RR minimum.
+    # 2. Check minimum RR.
     adaptive_min_rr = max(config.MIN_RR, float(learning.get("min_rr", config.MIN_RR)))
     if setup.get("risk_reward", 0) < adaptive_min_rr:
         return deny(f"RR {setup.get('risk_reward')} < adaptive minimum {adaptive_min_rr}.")
 
-    # 3. Hitung posisi dan risk amount.
+    # 3. Calculate position size and risk amount.
     risk_multiplier = min(1.0, max(0.0, float(learning.get("risk_multiplier", 1.0))))
     risk_amount = equity * config.MAX_RISK_PER_TRADE * risk_multiplier
     position_size = risk_amount / risk_per_unit
     
-    # 4. Cek daily loss limit.
+    # 4. Check daily loss limit.
     stats = get_today_stats()
     if stats["realized_pnl"] < -equity * config.MAX_DAILY_LOSS:
         return deny(f"Daily loss {stats['realized_pnl']} >= limit.")
 
-    # 5. Cek max trades per day.
+    # 5. Check max trades per day.
     if stats["trades_count"] >= config.MAX_TRADES_PER_DAY:
-        return deny("Sudah mencapai max trades per day.")
+        return deny("Max trades per day has been reached.")
     
     if stats["consecutive_loss"] >= config.MAX_CONSECUTIVE_LOSS:
-        return deny("Sudah loss berturut-turut, berhenti dulu.")
+        return deny("Consecutive loss limit reached; pause entries.")
     
-    # 6. Cek leverage limit.
+    # 6. Check leverage limit.
     max_position = equity * config.MAX_LEVERAGE / entry
     if position_size > max_position:
-        # Kecilkan posisi agar sesuai batas leverage.
+        # Reduce position size to fit the leverage limit.
         position_size = round(max_position, 8)
 
     if position_size < 0.0001:
-        return deny("Posisi terlalu kecil setelah adjustment leverage.")
+        return deny("Position size is too small after leverage adjustment.")
 
     return {
         "allowed": True,

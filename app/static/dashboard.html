@@ -833,8 +833,8 @@
         <section class="settings-section">
           <h3>environment</h3>
           <div class="rule">
-            Secret seperti API key dan token bisa diganti, tapi nilai lama tidak ditampilkan.
-            Kosongkan field secret kalau tidak ingin mengubahnya.
+            Secrets such as API keys and tokens can be replaced, but existing values are not displayed.
+            Leave a secret field empty when you want to keep the current value.
           </div>
           <div id="envSections"></div>
         </section>
@@ -842,7 +842,7 @@
         <section class="settings-section">
           <h3>clear local data</h3>
           <div class="rule">
-            Pilih data lokal yang ingin dihapus. Ini tidak menutup posisi Binance yang benar-benar open.
+            Select the local data you want to delete. This does not close any real open Binance position.
           </div>
           <div class="clear-grid" id="clearOptions">
             <label class="check-row"><input type="checkbox" value="trade_plans" checked> trade plans</label>
@@ -857,7 +857,7 @@
         <section class="settings-section">
           <h3>local logs</h3>
           <div class="rule">
-            Log bisa dihapus satu per satu. Ini hanya menghapus catatan lokal di SQLite.
+            Logs can be deleted one by one. This only removes local SQLite records.
           </div>
           <div class="button-row" style="padding: 0 12px 12px">
             <button class="small" id="refreshLogsBtn" type="button">refresh logs</button>
@@ -1110,17 +1110,17 @@
       const tables = Array.from(document.querySelectorAll("#clearOptions input:checked"))
         .map((input) => input.value);
       if (!tables.length) {
-        toast("pilih minimal satu data");
+        toast("select at least one data group");
         return;
       }
       const warning = [
-        `Data yang dipilih: ${tables.join(", ")}`,
-        "Ini hanya clear database lokal.",
-        "Ketik CLEAR_LOCAL_DATA untuk lanjut."
+        `Selected data: ${tables.join(", ")}`,
+        "This only clears the local database.",
+        "Type CLEAR_LOCAL_DATA to continue."
       ].join("\n\n");
       const confirmText = prompt(warning, "");
       if (confirmText !== "CLEAR_LOCAL_DATA") {
-        toast("clear dibatalkan");
+        toast("clear canceled");
         return;
       }
       const res = await postJson("/admin/clear-local-data", {

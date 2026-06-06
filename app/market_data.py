@@ -1,4 +1,4 @@
-"""Worker market data: ambil ticker & klines dari Binance, simpan ke SQLite."""
+"""Market data worker: fetch Binance ticker/klines and store them in SQLite."""
 import logging
 
 import pandas as pd
@@ -10,10 +10,10 @@ from app.binance_client import binance_client
 logger = logging.getLogger("market_data")
 
 def fetch_and_store_candles(timeframe: str, limit: int = 200):
-    """Ambil klines Binance dan simpan ke tabel candles (idempotent)."""
+    """Fetch Binance klines and store them in the candles table idempotently."""
     rows = binance_client.get_candles(config.SYMBOL, interval=timeframe, limit=limit)
     if not rows:
-        logger.warning("Tidak ada candle %s (API mungkin gagal).", timeframe)
+        logger.warning("No %s candles returned (API may have failed).", timeframe)
         return 0
     saved = 0
     with get_conn() as conn:
@@ -33,19 +33,19 @@ def fetch_and_store_candles(timeframe: str, limit: int = 200):
                 )
                 saved += cur.rowcount
             except (ValueError, IndexError) as e:
-                logger.error("Candle rusak dilewati: %s", e)
-    logger.info("Candle %s tersimpan: %s baris baru.", timeframe, saved)
+                logger.error("Skipping malformed candle: %s", e)
+    logger.info("Candle %s saved: %s new row(s).", timeframe, saved)
     return saved
 
 def fetch_ticker():
-    """Ambil ticker terbaru (harga real-time)."""
+    """Fetch the latest ticker price."""
     t = binance_client.get_ticker(config.SYMBOL)
     if t:
         logger.debug("Ticker %s = %s", config.SYMBOL, t.get("price"))
     return t
 
 def load_candles_df(timeframe: str, limit: int = 200) -> pd.DataFrame:
-    """Baca candle dari DB menjadi DataFrame kronologis."""
+    """Read candles from the DB as a chronological DataFrame."""
     with get_conn() as conn:
         df = pd.read_sql_query(
             """SELECT timestamp, open, high, low, close, volume

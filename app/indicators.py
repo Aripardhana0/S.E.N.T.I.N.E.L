@@ -1,4 +1,4 @@
-"""Perhitungan indikator teknikal pakai pandas + library ta."""
+"""Technical indicator calculations using pandas and the ta library."""
 import logging
 
 import pandas as pd
@@ -9,8 +9,8 @@ from ta.volatility import AverageTrueRange
 logger = logging.getLogger("indicators")
 
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
-    """Tambahkan kolom indikator. Mengembalikan df baru.
-    Butuh minimal ~50 baris agar EMA50 valid."""
+    """Add indicator columns and return a new dataframe.
+    Requires at least ~50 rows for EMA50 to be valid."""
     if df is None or df.empty or len(df) < 50:
         return df
     
@@ -29,14 +29,14 @@ def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def is_downtrend(df: pd.DataFrame) -> bool:
-    """Trend bearish bila EMA20(1h) < EMA50(1h) di candle terakhir."""
+    """Bearish trend when EMA20(1h) < EMA50(1h) on the last candle."""
     if df is None or df.empty:
         return False
     last = df.iloc[-1]
     return last.get("ema20", 0) < last.get("ema50", 0) and last["close"] < last.get("ema50", 0)
 
 def is_uptrend(df: pd.DataFrame) -> bool:
-    """Trend bullish bila EMA20(1h) > EMA50(1h) dan harga di atas EMA50."""
+    """Bullish trend when EMA20(1h) > EMA50(1h) and price is above EMA50."""
     if df is None or df.empty:
         return False
     last = df.iloc[-1]
@@ -53,10 +53,10 @@ def _candle_body(row) -> float:
     return abs(float(row["close"]) - float(row["open"]))
 
 def is_pullback_short_setup(df: pd.DataFrame, atr: float) -> bool:
-    """Setup short di 15m:
-    - harga pullback mendekati EMA20 atau EMA50
-    - candle terakhir bearish (close < open)
-    - RSI < 60 (tidak overbought)
+    """15m short setup:
+    - price pulls back near EMA20 or EMA50
+    - last candle is bearish (close < open)
+    - RSI < 60 (not overbought)
     """
     if df is None or df.empty or len(df) < 20:
         return False
@@ -72,7 +72,7 @@ def is_pullback_short_setup(df: pd.DataFrame, atr: float) -> bool:
     volume = last.get("volume", 0)
     vol_ma = last.get("vol_ma20", 0)
 
-    # Cek pullback ke EMA (dalam jarak ATR) dan candle punya body cukup.
+    # Check EMA pullback distance and ensure the candle body is meaningful.
     near_ema = (abs(close - ema20) <= atr * 0.65) or (abs(close - ema50) <= atr * 0.65)
     bearish_candle = close < open_price
     rsi_valid = 32 <= rsi <= 58
@@ -83,11 +83,11 @@ def is_pullback_short_setup(df: pd.DataFrame, atr: float) -> bool:
     return near_ema and bearish_candle and rsi_valid and body_valid and trend_strength and volume_valid
 
 def is_pullback_long_setup(df: pd.DataFrame, atr: float) -> bool:
-    """Setup long di 15m:
-    - harga pullback mendekati EMA20/EMA50
-    - candle terakhir bullish
-    - RSI sehat, tidak overbought
-    - ADX dan volume cukup
+    """15m long setup:
+    - price pulls back near EMA20/EMA50
+    - last candle is bullish
+    - RSI is healthy, not overbought
+    - ADX and volume are sufficient
     """
     if df is None or df.empty or len(df) < 50:
         return False

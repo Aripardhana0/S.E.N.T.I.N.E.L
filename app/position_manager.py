@@ -79,13 +79,13 @@ def close_trade_now(trade_id: int, reason: str = "manual") -> dict:
     """
     trade = journal.get_trade(trade_id)
     if not trade:
-        return {"ok": False, "message": "Trade tidak ditemukan."}
+        return {"ok": False, "message": "Trade not found."}
     if trade.get("closed_at") or trade.get("status") != "open":
-        return {"ok": False, "message": "Trade bukan posisi open."}
+        return {"ok": False, "message": "Trade is not an open position."}
 
     price = _last_price()
     if price is None:
-        return {"ok": False, "message": "Ticker kosong, tidak bisa close."}
+        return {"ok": False, "message": "Ticker is empty; cannot close."}
 
     close_order_id = None
     mode = current_mode()
@@ -97,7 +97,7 @@ def close_trade_now(trade_id: int, reason: str = "manual") -> dict:
             reduce_only=True,
         )
         if not resp or "orderId" not in resp:
-            return {"ok": False, "message": f"Close order gagal: {resp}"}
+            return {"ok": False, "message": f"Close order failed: {resp}"}
         close_order_id = str(resp["orderId"])
 
     updated = journal.close_trade(
@@ -118,7 +118,7 @@ def sync_simulated_entries() -> dict:
 
     price = _last_price()
     if price is None:
-        return {"ok": False, "checked": 0, "filled": 0, "message": "Ticker kosong."}
+        return {"ok": False, "checked": 0, "filled": 0, "message": "Ticker is empty."}
 
     active = journal.list_plans_by_status(["queued_sim"])
     filled = 0
@@ -137,7 +137,7 @@ def sync_simulated_entries() -> dict:
             journal.log_event("INFO", f"{mode}: plan {plan['id']} filled_sim @ {price}.")
             filled += 1
         except Exception as exc:
-            logger.exception("Gagal fill simulasi plan %s: %s", plan.get("id"), exc)
+            logger.exception("Failed to fill simulated plan %s: %s", plan.get("id"), exc)
     return {"ok": True, "checked": len(active), "filled": filled, "price": price}
 
 
@@ -145,7 +145,7 @@ def sync_exits() -> dict:
     """Close open trades when TP/SL is touched and update realized PnL."""
     price = _last_price()
     if price is None:
-        return {"ok": False, "checked": 0, "closed": 0, "message": "Ticker kosong."}
+        return {"ok": False, "checked": 0, "closed": 0, "message": "Ticker is empty."}
 
     mode = current_mode()
     open_trades = journal.list_open_trades()
@@ -165,7 +165,7 @@ def sync_exits() -> dict:
                 reduce_only=True,
             )
             if not resp or "orderId" not in resp:
-                logger.error("Close %s trade %s gagal: %s", reason, trade["id"], resp)
+                logger.error("Close %s trade %s failed: %s", reason, trade["id"], resp)
                 continue
             close_order_id = str(resp["orderId"])
 

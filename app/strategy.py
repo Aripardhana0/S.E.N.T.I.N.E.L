@@ -31,10 +31,10 @@ def _volume_ratio(row) -> float:
 def _build_setup(side: str, setup_type: str, entry: float, stop_loss: float,
                  take_profit: float, last, regime: str, reason: str) -> dict | None:
     if side == "short" and not (stop_loss > entry > take_profit):
-        logger.info("Skip %s: SL/TP short tidak valid.", setup_type)
+        logger.info("Skip %s: invalid short SL/TP.", setup_type)
         return None
     if side == "long" and not (stop_loss < entry < take_profit):
-        logger.info("Skip %s: SL/TP long tidak valid.", setup_type)
+        logger.info("Skip %s: invalid long SL/TP.", setup_type)
         return None
 
     risk_per_unit = abs(stop_loss - entry)
@@ -149,19 +149,19 @@ def generate_signal() -> dict | None:
     df_signal = add_indicators(load_candles_df(config.TIMEFRAME_SIGNAL, limit=220))
 
     if df_trend is None or df_signal is None or len(df_trend) < 80 or len(df_signal) < 80:
-        logger.debug("Skip: data belum cukup (trend atau signal).")
+        logger.debug("Skip: not enough trend or signal data.")
         return None
 
     regime = trend_regime(df_trend)
     setup = _trend_pullback(df_trend, df_signal, regime)
     if setup:
-        logger.info("Setup ditemukan: %s", setup)
+        logger.info("Setup found: %s", setup)
         return setup
 
     setup = _volatility_setup(df_trend, df_signal, regime)
     if setup:
-        logger.info("Setup volatility ditemukan: %s", setup)
+        logger.info("Volatility setup found: %s", setup)
         return setup
 
-    logger.debug("Skip: tidak ada setup kuat. regime=%s", regime)
+    logger.debug("Skip: no strong setup found. regime=%s", regime)
     return None

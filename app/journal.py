@@ -1,4 +1,4 @@
-"""Lapisan akses data: simpan/baca trade_plans, trades, daily_stats, logs."""
+"""Data access layer for trade_plans, trades, daily_stats, and logs."""
 import json
 import logging
 from datetime import datetime, timezone
@@ -33,7 +33,7 @@ def delete_log(log_id: int) -> dict:
     with get_conn() as conn:
         row = conn.execute("SELECT * FROM logs WHERE id=?", (log_id,)).fetchone()
         if not row:
-            return {"ok": False, "deleted": 0, "message": "Log tidak ditemukan."}
+            return {"ok": False, "deleted": 0, "message": "Log not found."}
         conn.execute("DELETE FROM logs WHERE id=?", (log_id,))
         return {"ok": True, "deleted": 1, "log": dict(row)}
 
@@ -70,7 +70,7 @@ def update_trade_plan_status(plan_id: int, status: str):
         )
 
 def set_order_id(plan_id: int, order_id: str):
-    """Simpan id order exchange dan waktu mulai antre."""
+    """Store the exchange order id and queue start time."""
     with get_conn() as conn:
         conn.execute(
             "UPDATE trade_plans SET binance_order_id=?, queued_at=? WHERE id=?",
@@ -130,7 +130,7 @@ def save_trade(trade_plan_id: int, setup: dict, size: float,
                 setup_key, setup_type,
             ),
         )
-        # Naikkan counter trade harian.
+        # Increment the daily trade counter.
         _bump_daily_trades_conn(conn)
         return cur.lastrowid
 
@@ -181,11 +181,11 @@ def close_trade(trade_id: int, exit_price: float | None = None,
             return None
         trade = dict(row)
         if trade.get("closed_at"):
-            raise ValueError("Trade sudah closed.")
+            raise ValueError("Trade is already closed.")
 
         if pnl is None:
             if exit_price is None:
-                raise ValueError("Isi exit_price atau pnl.")
+                raise ValueError("Provide exit_price or pnl.")
             entry = float(trade["entry"])
             size = float(trade["size"])
             if trade["side"] == "short":
@@ -222,7 +222,7 @@ def update_trade_levels(
             return None
         trade = dict(row)
         if trade.get("closed_at"):
-            raise ValueError("Trade sudah closed.")
+            raise ValueError("Trade is already closed.")
 
         entry = float(trade["entry"])
         side = str(trade["side"]).lower()
@@ -230,9 +230,9 @@ def update_trade_levels(
         take_profit = float(take_profit if take_profit is not None else trade["take_profit"])
 
         if side == "short" and not (stop_loss > entry > take_profit):
-            raise ValueError("Untuk short wajib: SL > entry > TP.")
+            raise ValueError("Short setup requires: SL > entry > TP.")
         if side == "long" and not (stop_loss < entry < take_profit):
-            raise ValueError("Untuk long wajib: SL < entry < TP.")
+            raise ValueError("Long setup requires: SL < entry < TP.")
 
         conn.execute(
             "UPDATE trades SET stop_loss=?, take_profit=? WHERE id=?",
@@ -268,11 +268,11 @@ def clear_local_journal(
         for table in tables:
             table = table.strip()
             if table not in allowed_tables:
-                raise ValueError(f"Tabel {table} tidak boleh di-clear.")
+                raise ValueError(f"Table {table} cannot be cleared.")
             if table not in selected_tables:
                 selected_tables.append(table)
     if not selected_tables:
-        raise ValueError("Pilih minimal satu data untuk di-clear.")
+        raise ValueError("Select at least one data group to clear.")
     with get_conn() as conn:
         counts = {}
         for table in selected_tables:

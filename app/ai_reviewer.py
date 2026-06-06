@@ -13,16 +13,16 @@ from app.config import config
 
 logger = logging.getLogger("ai_reviewer")
 
-SYSTEM_PROMPT = """Anda adalah reviewer trading BTC Futures yang disiplin.
-Tugas Anda:
-1. Evaluasi konsistensi setup terhadap trend regime, indikator, entry, SL, TP, RR, dan alasan entry.
-2. Dukung long saat uptrend/pullback valid, short saat downtrend/pullback valid, dan breakout saat volume/ADX/body mendukung.
-3. Tolak atau watch jika RR lemah, entry mengejar harga, SL tidak logis, indikator konflik, atau volatilitas terlalu liar.
-4. Jangan override risk manager. Jika risk manager menolak, verdict harus reject.
-5. Reason wajib spesifik: sebutkan minimal 2 faktor angka/kondisi dari payload, bukan kalimat template.
-6. Return JSON HANYA.
+SYSTEM_PROMPT = """You are a disciplined BTC Futures trading reviewer.
+Your tasks:
+1. Evaluate setup consistency against trend regime, indicators, entry, SL, TP, RR, and entry reason.
+2. Support long trades when an uptrend/pullback is valid, short trades when a downtrend/pullback is valid, and breakouts when volume/ADX/body support the move.
+3. Reject or watch if RR is weak, entry chases price, SL is illogical, indicators conflict, or volatility is too aggressive.
+4. Never override the risk manager. If the risk manager rejects, verdict must be reject.
+5. The reason must be specific: mention at least 2 numeric/context factors from the payload, not a template sentence.
+6. Return JSON ONLY.
 
-Confidence: "low", "medium", atau "high".
+Confidence: "low", "medium", or "high".
 """
 
 
@@ -59,10 +59,10 @@ def _fallback(setup: dict, risk_result: dict, prefix: str) -> dict:
 def review(setup: dict, risk_result: dict) -> dict:
     """Ask AI to review a trade plan. Always returns a valid dict."""
     if not risk_result.get("allowed"):
-        return _fallback(setup, risk_result, "Risk manager menolak setup.")
+        return _fallback(setup, risk_result, "Risk manager rejected the setup.")
     if not config.has_openrouter():
-        logger.warning("OPENROUTER_API_KEY kosong, pakai fallback review.")
-        return _fallback(setup, risk_result, "OpenRouter tidak aktif; review rule-based.")
+        logger.warning("OPENROUTER_API_KEY is empty; using fallback review.")
+        return _fallback(setup, risk_result, "OpenRouter is inactive; using rule-based review.")
 
     user_payload = {
         "setup": setup,
@@ -97,7 +97,7 @@ def review(setup: dict, risk_result: dict) -> dict:
             content = r.json()["choices"][0]["message"]["content"]
             parsed = json.loads(content)
             reason = parsed.get("reason") or _concrete_reason(
-                setup, risk_result, "AI tidak mengirim reason, fallback detail."
+                setup, risk_result, "AI did not return a reason; using fallback detail."
             )
             return {
                 "verdict": parsed.get("verdict", "watch"),
@@ -106,5 +106,5 @@ def review(setup: dict, risk_result: dict) -> dict:
                 "confidence": parsed.get("confidence", "low"),
             }
     except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
-        logger.error("AI review gagal: %s", exc)
-        return _fallback(setup, risk_result, "AI request gagal; review rule-based.")
+        logger.error("AI review failed: %s", exc)
+        return _fallback(setup, risk_result, "AI request failed; using rule-based review.")
