@@ -205,23 +205,24 @@
         <div class="eyebrow">secure monitor access</div>
         <h1>S.E.N.T.I.N.E.L</h1>
         <p class="lead">
-          AI-assisted trading agent untuk belajar dan demo/paper trading BTCUSDT di Binance Demo USD-M Futures.
-          Sistem ini menggabungkan auto entry, market guard deterministik, risk manager, learning guard,
-          AI reviewer, dan dashboard monitoring dalam satu ruang kendali.
+          Strategic Event-driven Neural Trading Intelligence for Navigating Execution & Liquidity.
+          SENTINEL is an AI-assisted trading agent for BTCUSDT demo and paper trading on Binance USD-M Futures,
+          combining auto entry, deterministic market guards, risk control, learning feedback, AI review,
+          and live monitoring in one operator console.
         </p>
       </div>
       <div class="stack">
-        <div class="item"><b>Market Guard</b><span>Memblok entry saat volatilitas, volume, range, atau move terlalu liar.</span></div>
-        <div class="item"><b>Learning Guard</b><span>Membaca hasil closed trade untuk menjaga setup yang sering kalah.</span></div>
-        <div class="item"><b>Risk First</b><span>Risk manager tetap menjadi gerbang utama sebelum AI memberi review.</span></div>
-        <div class="item"><b>Demo Safe</b><span>Dibuat untuk uji coba dan pembelajaran, bukan nasihat finansial.</span></div>
+        <div class="item"><b>Market Guard</b><span>Blocks entries when volatility, range, volume, or movement becomes unsafe.</span></div>
+        <div class="item"><b>Learning Guard</b><span>Reads closed trade outcomes to identify weak setups and reduce repeated mistakes.</span></div>
+        <div class="item"><b>Risk First</b><span>Deterministic risk checks stay above AI judgment before any execution path.</span></div>
+        <div class="item"><b>Demo Safe</b><span>Built for experimentation and learning, not financial advice.</span></div>
       </div>
-      <div class="notice">Login dibutuhkan sebelum membuka dashboard dan endpoint operasional.</div>
+      <div class="notice">Login is required before opening the dashboard and operational endpoints.</div>
     </section>
     <section class="login">
       <div class="panel-title">
         <h2>operator login</h2>
-        <div class="sub">Masuk untuk membuka dashboard SENTINEL.</div>
+        <div class="sub">Sign in to open the SENTINEL dashboard.</div>
       </div>
       <form id="loginForm">
         <label>
@@ -235,7 +236,7 @@
         <button id="loginBtn" type="submit">login</button>
         <div id="error" class="error"></div>
       </form>
-      <div class="secure">Session memakai cookie HttpOnly. Ganti credential dari .env setelah deploy jika dashboard dibuka ke internet.</div>
+      <div class="secure">Session access uses an HttpOnly cookie. Rotate the dashboard credential from .env after deployment if this panel is exposed to the internet.</div>
     </section>
   </main>
   <script>
