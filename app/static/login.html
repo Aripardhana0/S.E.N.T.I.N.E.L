@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SENTINEL Login</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b10;
+      --panel: #0f151d;
+      --panel-2: #121b24;
+      --line: #243241;
+      --line-soft: #1b2632;
+      --text: #d8e5f0;
+      --muted: #8191a4;
+      --green: #39ff9b;
+      --cyan: #43d9ff;
+      --red: #ff5c77;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .38);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        linear-gradient(rgba(67, 217, 255, .028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(67, 217, 255, .028) 1px, transparent 1px),
+        radial-gradient(circle at 18% 18%, rgba(57, 255, 155, .08), transparent 34%),
+        var(--bg);
+      background-size: 30px 30px, 30px 30px, auto, auto;
+      color: var(--text);
+      font: 13px/1.5 "JetBrains Mono", "Cascadia Code", "Fira Code", Consolas, monospace;
+      letter-spacing: 0;
+    }
+    .shell {
+      width: min(980px, 100%);
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) 360px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(15, 21, 29, .92);
+      box-shadow: var(--shadow);
+    }
+    .intro {
+      min-height: 560px;
+      padding: 34px;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(67, 217, 255, .06), transparent 46%),
+        rgba(255, 255, 255, .012);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 28px;
+    }
+    .brand {
+      display: grid;
+      gap: 12px;
+    }
+    .eyebrow {
+      color: var(--cyan);
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    h1 {
+      margin: 0;
+      color: var(--green);
+      font-size: clamp(32px, 5vw, 56px);
+      line-height: .95;
+      font-weight: 900;
+    }
+    .lead {
+      max-width: 620px;
+      margin: 0;
+      color: var(--text);
+      font-size: 15px;
+    }
+    .stack {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .item {
+      border: 1px solid var(--line-soft);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(255, 255, 255, .025);
+    }
+    .item b {
+      display: block;
+      color: var(--cyan);
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+    .item span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .notice {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .login {
+      padding: 28px;
+      background: var(--panel);
+      display: grid;
+      align-content: center;
+      gap: 18px;
+    }
+    .panel-title {
+      display: grid;
+      gap: 4px;
+    }
+    h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 20px;
+    }
+    .sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    form {
+      display: grid;
+      gap: 12px;
+    }
+    label {
+      display: grid;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    input {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      background: #090f16;
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+    button {
+      min-height: 42px;
+      border: 1px solid var(--green);
+      border-radius: 7px;
+      background: var(--green);
+      color: #00140b;
+      cursor: pointer;
+      padding: 10px 12px;
+      font: inherit;
+      font-weight: 900;
+    }
+    button:disabled {
+      cursor: wait;
+      opacity: .72;
+    }
+    .error {
+      min-height: 22px;
+      color: var(--red);
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    .secure {
+      padding: 10px;
+      border: 1px solid var(--line-soft);
+      border-radius: 7px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, .02);
+      font-size: 12px;
+    }
+    @media (max-width: 860px) {
+      body { padding: 12px; }
+      .shell { grid-template-columns: 1fr; }
+      .intro {
+        min-height: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 24px;
+      }
+      .login { padding: 24px; }
+    }
+    @media (max-width: 560px) {
+      .stack { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="intro">
+      <div class="brand">
+        <div class="eyebrow">secure monitor access</div>
+        <h1>S.E.N.T.I.N.E.L</h1>
+        <p class="lead">
+          AI-assisted trading agent untuk belajar dan demo/paper trading BTCUSDT di Binance Demo USD-M Futures.
+          Sistem ini menggabungkan auto entry, market guard deterministik, risk manager, learning guard,
+          AI reviewer, dan dashboard monitoring dalam satu ruang kendali.
+        </p>
+      </div>
+      <div class="stack">
+        <div class="item"><b>Market Guard</b><span>Memblok entry saat volatilitas, volume, range, atau move terlalu liar.</span></div>
+        <div class="item"><b>Learning Guard</b><span>Membaca hasil closed trade untuk menjaga setup yang sering kalah.</span></div>
+        <div class="item"><b>Risk First</b><span>Risk manager tetap menjadi gerbang utama sebelum AI memberi review.</span></div>
+        <div class="item"><b>Demo Safe</b><span>Dibuat untuk uji coba dan pembelajaran, bukan nasihat finansial.</span></div>
+      </div>
+      <div class="notice">Login dibutuhkan sebelum membuka dashboard dan endpoint operasional.</div>
+    </section>
+    <section class="login">
+      <div class="panel-title">
+        <h2>operator login</h2>
+        <div class="sub">Masuk untuk membuka dashboard SENTINEL.</div>
+      </div>
+      <form id="loginForm">
+        <label>
+          username
+          <input id="username" name="username" autocomplete="username" required autofocus>
+        </label>
+        <label>
+          password
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button id="loginBtn" type="submit">login</button>
+        <div id="error" class="error"></div>
+      </form>
+      <div class="secure">Session memakai cookie HttpOnly. Ganti credential dari .env setelah deploy jika dashboard dibuka ke internet.</div>
+    </section>
+  </main>
+  <script>
+    const form = document.getElementById("loginForm");
+    const error = document.getElementById("error");
+    const button = document.getElementById("loginBtn");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      error.textContent = "";
+      button.disabled = true;
+      button.textContent = "checking...";
+      try {
+        const res = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("username").value,
+            password: document.getElementById("password").value
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "login failed");
+        window.location.href = "/dashboard";
+      } catch (err) {
+        error.textContent = err.message || String(err);
+      } finally {
+        button.disabled = false;
+        button.textContent = "login";
+      }
+    });
+  </script>
+</body>
+</html>

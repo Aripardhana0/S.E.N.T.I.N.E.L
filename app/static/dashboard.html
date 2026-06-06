@@ -157,17 +157,16 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .grid {
+    .dashboard-section {
       display: grid;
-      grid-template-columns: repeat(12, minmax(0, 1fr));
       gap: 10px;
       align-items: start;
     }
-    .span-4 { grid-column: span 4; }
-    .span-5 { grid-column: span 5; }
-    .span-7 { grid-column: span 7; }
-    .span-8 { grid-column: span 8; }
-    .span-12 { grid-column: span 12; }
+    .dashboard-section + .dashboard-section { margin-top: 10px; }
+    .triple-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .analytics-grid { grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); }
+    .tables-grid { grid-template-columns: minmax(0, .72fr) minmax(0, 1fr); }
+    .full-grid { grid-template-columns: 1fr; }
     .panel {
       min-width: 0;
       overflow: hidden;
@@ -271,6 +270,7 @@
     }
     .rule-list {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 7px;
       margin-top: 10px;
     }
@@ -523,7 +523,7 @@
 
     @media (max-width: 1160px) {
       .status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
+      .triple-grid, .analytics-grid, .tables-grid { grid-template-columns: 1fr; }
       .settings-fields, .clear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .log-row { grid-template-columns: 58px 1fr auto; }
       .log-row .log-time { display: none; }
@@ -542,6 +542,7 @@
       main { padding: 12px; }
       .status-grid { grid-template-columns: 1fr; }
       .kv { grid-template-columns: 1fr; }
+      .rule-list { grid-template-columns: 1fr; }
       .bar-row { grid-template-columns: 82px minmax(0, 1fr) 46px; }
       .tile { min-height: 70px; }
       .tile-value { font-size: 18px; }
@@ -564,6 +565,7 @@
         <button id="settingsBtn" type="button">settings</button>
         <button id="syncBtn" type="button">sync fills</button>
         <button class="danger" id="cancelBtn" type="button">cancel queue</button>
+        <button class="danger" id="logoutBtn" type="button">logout</button>
       </div>
     </div>
   </header>
@@ -607,8 +609,8 @@
       </div>
     </section>
 
-    <section class="grid">
-      <article class="panel span-4">
+    <section class="dashboard-section triple-grid">
+      <article class="panel">
         <div class="panel-head">
           <h2>capital</h2>
           <span id="accountPill" class="pill info">local</span>
@@ -625,7 +627,7 @@
         </div>
       </article>
 
-      <article class="panel span-4">
+      <article class="panel">
         <div class="panel-head">
           <h2>controls</h2>
           <span id="settingsPill" class="pill info">runtime</span>
@@ -652,7 +654,7 @@
         </div>
       </article>
 
-      <article class="panel span-4">
+      <article class="panel">
         <div class="panel-head">
           <h2>runtime</h2>
           <span id="modePill" class="pill info">...</span>
@@ -668,7 +670,10 @@
         </div>
       </article>
 
-      <article class="panel span-4">
+    </section>
+
+    <section class="dashboard-section triple-grid">
+      <article class="panel">
         <div class="panel-head">
           <h2>market guard</h2>
           <span id="guardPill" class="pill info">...</span>
@@ -684,7 +689,7 @@
         </div>
       </article>
 
-      <article class="panel span-4">
+      <article class="panel">
         <div class="panel-head">
           <h2>daily risk</h2>
           <span id="day" class="pill info">-</span>
@@ -699,7 +704,7 @@
         </div>
       </article>
 
-      <article class="panel span-4">
+      <article class="panel">
         <div class="panel-head">
           <h2>learning guard</h2>
           <span id="learningPill" class="pill info">...</span>
@@ -715,7 +720,10 @@
         </div>
       </article>
 
-      <article class="panel span-8">
+    </section>
+
+    <section class="dashboard-section analytics-grid">
+      <article class="panel">
         <div class="panel-head">
           <h2>setup performance</h2>
           <span id="setupPerfCount" class="pill info">0</span>
@@ -730,7 +738,7 @@
         </div>
       </article>
 
-      <article class="panel span-12">
+      <article class="panel">
         <div class="panel-head">
           <h2>daily evaluation</h2>
           <span id="dailyPerfDay" class="pill info">-</span>
@@ -747,7 +755,10 @@
         </div>
       </article>
 
-      <article class="panel span-5">
+    </section>
+
+    <section class="dashboard-section tables-grid">
+      <article class="panel">
         <div class="panel-head">
           <h2>entry queue</h2>
           <span id="queueCount" class="pill info">0</span>
@@ -762,7 +773,7 @@
         </div>
       </article>
 
-      <article class="panel span-7">
+      <article class="panel">
         <div class="panel-head">
           <h2>latest plans</h2>
           <span id="planCount" class="pill info">0</span>
@@ -777,7 +788,10 @@
         </div>
       </article>
 
-      <article class="panel span-12">
+    </section>
+
+    <section class="dashboard-section full-grid">
+      <article class="panel">
         <div class="panel-head">
           <h2>trades</h2>
           <span id="tradeCount" class="pill info">0</span>
@@ -885,8 +899,15 @@
       clearTimeout(window.__toastTimer);
       window.__toastTimer = setTimeout(() => el.classList.remove("show"), 3400);
     };
+    function handleAuthResponse(res) {
+      if (res.status === 401) {
+        window.location.href = "/login";
+        throw new Error("login required");
+      }
+    }
     async function getJson(path) {
       const res = await fetch(path, { cache: "no-store" });
+      handleAuthResponse(res);
       if (!res.ok) throw new Error(`${path}: ${res.status}`);
       return res.json();
     }
@@ -904,12 +925,14 @@
         options.body = JSON.stringify(body);
       }
       const res = await fetch(path, options);
+      handleAuthResponse(res);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
       return data;
     }
     async function deleteJson(path) {
       const res = await fetch(path, { method: "DELETE" });
+      handleAuthResponse(res);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `${path}: ${res.status}`);
       return data;
@@ -1313,6 +1336,14 @@
         toast(`canceled ${res.canceled ?? 0} queue item(s)`);
         refresh();
       } catch (err) { toast(err.message || String(err)); }
+    });
+    $("logoutBtn").addEventListener("click", async () => {
+      try {
+        await postJson("/logout");
+      } catch (err) {
+        // Logout should still leave the dashboard even if the session is already gone.
+      }
+      window.location.href = "/login";
     });
     $("settingsBtn").addEventListener("click", () => {
       openSettingsModal().catch((err) => toast(err.message || String(err)));

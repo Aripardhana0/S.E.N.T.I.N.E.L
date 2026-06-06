@@ -65,6 +65,12 @@ OPENROUTER_MODEL=openrouter/free
 TELEGRAM_BOT_TOKEN=
 TELEGRAM_CHAT_ID=
 
+DASHBOARD_AUTH_ENABLED=true
+DASHBOARD_USERNAME=arip
+DASHBOARD_PASSWORD=
+DASHBOARD_PASSWORD_HASH=
+DASHBOARD_SESSION_SECRET=
+
 SYMBOL=BTCUSDT
 TIMEFRAME_SIGNAL=15m
 TIMEFRAME_TREND=1h
@@ -140,6 +146,8 @@ GUARD_ENABLED=true
 | Endpoint | Metode | Deskripsi |
 | --- | --- | --- |
 | `/` | GET | Info app dan mode |
+| `/login` | GET/POST | Halaman login dashboard dan proses login |
+| `/logout` | POST | Hapus session dashboard |
 | `/health` | GET | Health check |
 | `/status` | GET | Mode, symbol, guard, dan stats |
 | `/account` | GET | Saldo/equity, open risk, queued risk, win/loss nominal |
@@ -200,6 +208,11 @@ dan tidak ikut dibatalkan job guard, tapi tidak melewati risk manager.
 Dashboard runtime controls mengubah mode proses yang sedang berjalan dan menulis
 balik ke `.env`. Di Docker, `docker-compose.yml` me-mount `./.env:/app/.env`
 agar perubahan itu ikut tersimpan di host.
+
+Dashboard dilindungi login sederhana dengan cookie session `HttpOnly`. Default
+username adalah `arip`; password default mengikuti kredensial operator yang
+diminta untuk deploy ini. Untuk produksi, isi `DASHBOARD_PASSWORD` atau
+`DASHBOARD_PASSWORD_HASH`, serta `DASHBOARD_SESSION_SECRET` di `.env`.
 
 Menu settings bisa mengubah semua field `.env`. Secret seperti API key dan
 token bisa diganti, tetapi nilai lama tidak ditampilkan di dashboard. Clear data

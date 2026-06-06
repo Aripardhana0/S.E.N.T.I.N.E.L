@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from app import (
     accounting,
+    auth,
     journal,
     market_data,
     market_guard,
@@ -33,6 +34,29 @@ logger = logging.getLogger("main")
 
 _tg_app = None
 _DASHBOARD_PATH = Path(__file__).parent / "static" / "dashboard.html"
+_LOGIN_PATH = Path(__file__).parent / "static" / "login.html"
+_PROTECTED_PREFIXES = (
+    "/openapi.json",
+    "/docs",
+    "/redoc",
+    "/dashboard",
+    "/status",
+    "/account",
+    "/settings",
+    "/last-signal",
+    "/trade-plans",
+    "/trades",
+    "/performance",
+    "/market-guard",
+    "/queue",
+    "/positions",
+    "/logs",
+    "/cancel-all",
+    "/sync-fills",
+    "/admin",
+    "/approve",
+    "/reject",
+)
 
 
 class ModePayload(BaseModel):
@@ -57,6 +81,21 @@ class ClearLocalDataPayload(BaseModel):
 
 class EnvUpdatePayload(BaseModel):
     values: dict[str, str]
+
+
+class LoginPayload(BaseModel):
+    username: str
+    password: str
+
+
+def _is_protected_path(path: str) -> bool:
+    return any(path == prefix or path.startswith(f"{prefix}/") for prefix in _PROTECTED_PREFIXES)
+
+
+def _is_authenticated(request: Request) -> bool:
+    if not config.DASHBOARD_AUTH_ENABLED:
+        return True
+    return auth.verify_session_token(request.cookies.get(auth.COOKIE_NAME))
 
 
 @asynccontextmanager
@@ -94,6 +133,15 @@ app = FastAPI(title="BTC Demo Trading AI Agent - Auto", lifespan=lifespan)
 
 
 @app.middleware("http")
+async def require_dashboard_auth(request: Request, call_next):
+    if _is_protected_path(request.url.path) and not _is_authenticated(request):
+        if request.method == "GET" and request.url.path == "/dashboard":
+            return RedirectResponse("/login", status_code=303)
+        return JSONResponse({"detail": "Login required."}, status_code=401)
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def log_http_errors(request: Request, call_next):
     response = await call_next(request)
     if response.status_code >= 400:
@@ -109,6 +157,35 @@ async def log_http_errors(request: Request, call_next):
 @app.get("/")
 def root():
     return {"name": "BTC Demo Trading AI Agent", "mode": current_mode()}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    if _is_authenticated(request):
+        return RedirectResponse("/dashboard", status_code=303)
+    return HTMLResponse(_LOGIN_PATH.read_text(encoding="utf-8"))
+
+
+@app.post("/login")
+def login(payload: LoginPayload):
+    if not auth.verify_credentials(payload.username, payload.password):
+        raise HTTPException(status_code=401, detail="Username atau password salah.")
+    response = JSONResponse({"ok": True, "message": "Login berhasil."})
+    response.set_cookie(
+        auth.COOKIE_NAME,
+        auth.create_session_token(),
+        max_age=auth.SESSION_TTL_SECONDS,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@app.post("/logout")
+def logout():
+    response = JSONResponse({"ok": True, "message": "Logout berhasil."})
+    response.delete_cookie(auth.COOKIE_NAME)
+    return response
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

@@ -61,6 +61,13 @@ class Config:
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
+    # --- Dashboard auth ---
+    DASHBOARD_AUTH_ENABLED = _get_bool("DASHBOARD_AUTH_ENABLED", True)
+    DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "arip")
+    DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "")
+    DASHBOARD_PASSWORD_HASH = os.getenv("DASHBOARD_PASSWORD_HASH", "")
+    DASHBOARD_SESSION_SECRET = os.getenv("DASHBOARD_SESSION_SECRET", "")
+
     # --- Market / strategy ---
     SYMBOL = os.getenv("SYMBOL", "BTCUSDT")
     TIMEFRAME_SIGNAL = os.getenv("TIMEFRAME_SIGNAL", "15m")
