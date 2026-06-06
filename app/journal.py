@@ -225,19 +225,41 @@ def update_trade_levels(
         updated = conn.execute("SELECT * FROM trades WHERE id=?", (trade_id,)).fetchone()
         return dict(updated)
 
-def clear_local_journal(include_candles: bool = False) -> dict:
+def clear_local_journal(
+    include_candles: bool = False,
+    tables: list[str] | None = None,
+) -> dict:
     """Clear local trading journal data.
 
     By default candles are kept so indicators still have history after reset.
     This does not close exchange positions; callers should cancel/close exchange
     exposure first when needed.
     """
-    tables = ["trade_plans", "trades", "daily_stats", "daily_reviews", "logs"]
-    if include_candles:
-        tables.append("candles")
+    allowed_tables = {
+        "trade_plans",
+        "trades",
+        "daily_stats",
+        "daily_reviews",
+        "logs",
+        "candles",
+    }
+    if tables is None:
+        selected_tables = ["trade_plans", "trades", "daily_stats", "daily_reviews", "logs"]
+        if include_candles:
+            selected_tables.append("candles")
+    else:
+        selected_tables = []
+        for table in tables:
+            table = table.strip()
+            if table not in allowed_tables:
+                raise ValueError(f"Tabel {table} tidak boleh di-clear.")
+            if table not in selected_tables:
+                selected_tables.append(table)
+    if not selected_tables:
+        raise ValueError("Pilih minimal satu data untuk di-clear.")
     with get_conn() as conn:
         counts = {}
-        for table in tables:
+        for table in selected_tables:
             row = conn.execute(f"SELECT COUNT(*) AS total FROM {table}").fetchone()
             counts[table] = int(row["total"] or 0)
             conn.execute(f"DELETE FROM {table}")
@@ -247,10 +269,10 @@ def clear_local_journal(include_candles: bool = False) -> dict:
             (
                 _now(),
                 "WARNING",
-                f"Local journal cleared. include_candles={include_candles}",
+                f"Local data cleared: {', '.join(selected_tables)}",
             ),
         )
-    return {"ok": True, "cleared": counts, "include_candles": include_candles}
+    return {"ok": True, "cleared": counts, "tables": selected_tables}
 
 def get_today_stats() -> dict:
     day = _today()

@@ -52,6 +52,11 @@ class LevelsPayload(BaseModel):
 class ClearLocalDataPayload(BaseModel):
     confirm: str
     include_candles: bool = False
+    tables: list[str] | None = None
+
+
+class EnvUpdatePayload(BaseModel):
+    values: dict[str, str]
 
 
 @asynccontextmanager
@@ -152,6 +157,19 @@ def set_mode(payload: ModePayload):
 def set_toggle(payload: TogglePayload):
     try:
         return runtime_settings.set_bool(payload.key, payload.value)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/settings/env")
+def env_settings():
+    return runtime_settings.env_snapshot()
+
+
+@app.post("/settings/env")
+def update_env_settings(payload: EnvUpdatePayload):
+    try:
+        return runtime_settings.update_env_values(payload.values)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -266,7 +284,13 @@ def clear_local_data(payload: ClearLocalDataPayload):
             detail="Ketik CLEAR_LOCAL_DATA untuk konfirmasi clear data lokal.",
         )
     cancel_result = order_queue.cancel_all_pending(reason="clear local data")
-    clear_result = journal.clear_local_journal(include_candles=payload.include_candles)
+    try:
+        clear_result = journal.clear_local_journal(
+            include_candles=payload.include_candles,
+            tables=payload.tables,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "ok": True,
         "cancel_result": cancel_result,

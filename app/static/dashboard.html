@@ -363,10 +363,129 @@
       overflow-wrap: anywhere;
     }
     .toast.show { opacity: 1; transform: translateY(0); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      background: rgba(3, 7, 12, .76);
+      backdrop-filter: blur(8px);
+      padding: 18px;
+    }
+    .modal-backdrop.show { display: grid; place-items: center; }
+    .modal {
+      width: min(1180px, 100%);
+      max-height: min(860px, calc(100vh - 36px));
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+    .modal-head {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(15, 21, 29, .96);
+    }
+    .modal-body {
+      display: grid;
+      gap: 12px;
+      padding: 12px;
+    }
+    .settings-section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, .015);
+    }
+    .settings-section h3 {
+      margin: 0;
+      padding: 10px 12px;
+      color: var(--cyan);
+      font-size: 12px;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--line-soft);
+      background: var(--panel-2);
+    }
+    .settings-fields {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+    .field label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+    input, select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: #0b1118;
+      color: var(--text);
+      padding: 7px 9px;
+      font: inherit;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--cyan);
+    }
+    .field-hint {
+      color: var(--dim);
+      font-size: 10px;
+      min-height: 13px;
+    }
+    .clear-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 12px;
+    }
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 7px 9px;
+      border: 1px solid var(--line-soft);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, .018);
+      color: var(--text);
+      font-weight: 800;
+    }
+    .check-row input { width: auto; min-height: auto; }
+    .settings-footer {
+      position: sticky;
+      bottom: 0;
+      z-index: 3;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: rgba(15, 21, 29, .96);
+    }
 
     @media (max-width: 1160px) {
       .status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
+      .settings-fields, .clear-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
       .topbar { grid-template-columns: 1fr; padding: 12px; }
@@ -385,6 +504,8 @@
       .bar-row { grid-template-columns: 82px minmax(0, 1fr) 46px; }
       .tile { min-height: 70px; }
       .tile-value { font-size: 18px; }
+      .settings-fields, .clear-grid { grid-template-columns: 1fr; }
+      .modal-backdrop { padding: 8px; }
     }
   </style>
 </head>
@@ -397,6 +518,7 @@
       </div>
       <div class="actions">
         <button class="primary" id="refreshBtn" type="button">refresh</button>
+        <button id="settingsBtn" type="button">settings</button>
         <button id="syncBtn" type="button">sync fills</button>
         <button class="danger" id="cancelBtn" type="button">cancel queue</button>
       </div>
@@ -631,10 +753,55 @@
 
   <div id="toast" class="toast"></div>
 
+  <div id="settingsModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="settingsTitle">settings</h2>
+          <div class="sub" id="envPathText">loading .env...</div>
+        </div>
+        <button id="closeSettingsBtn" type="button">close</button>
+      </div>
+      <div class="modal-body">
+        <section class="settings-section">
+          <h3>environment</h3>
+          <div class="rule">
+            Secret seperti API key dan token bisa diganti, tapi nilai lama tidak ditampilkan.
+            Kosongkan field secret kalau tidak ingin mengubahnya.
+          </div>
+          <div id="envSections"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>clear local data</h3>
+          <div class="rule">
+            Pilih data lokal yang ingin dihapus. Ini tidak menutup posisi Binance yang benar-benar open.
+          </div>
+          <div class="clear-grid" id="clearOptions">
+            <label class="check-row"><input type="checkbox" value="trade_plans" checked> trade plans</label>
+            <label class="check-row"><input type="checkbox" value="trades" checked> trades</label>
+            <label class="check-row"><input type="checkbox" value="daily_stats" checked> daily stats</label>
+            <label class="check-row"><input type="checkbox" value="daily_reviews" checked> daily reviews</label>
+            <label class="check-row"><input type="checkbox" value="logs" checked> logs</label>
+            <label class="check-row"><input type="checkbox" value="candles"> candles</label>
+          </div>
+        </section>
+      </div>
+      <div class="settings-footer">
+        <div class="sub">Changes are written to mounted <code>.env</code> and applied to runtime when possible.</div>
+        <div class="actions">
+          <button id="saveEnvBtn" class="primary" type="button">save .env</button>
+          <button id="clearSelectedBtn" class="danger" type="button">clear selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const $ = (id) => document.getElementById(id);
     let lastStatus = null;
     let lastSettings = null;
+    let lastEnvSettings = null;
     const guardLimit = { atr_ratio: 1.8, vol_ratio: 3.0, range_ratio: 2.5, move_pct: 1.5 };
     const fmt = (value, digits = 2) => {
       const n = Number(value);
@@ -744,6 +911,94 @@
       $("toggleAutoBtn").textContent = `auto ${data.auto_entry ? "on" : "off"}`;
       $("toggleGuardBtn").textContent = `guard ${data.guard_enabled ? "on" : "off"}`;
       $("toggleManualBtn").textContent = `manual ${data.require_manual_approval ? "on" : "off"}`;
+    }
+    function envInput(item) {
+      const key = escapeHtml(item.key);
+      const value = escapeHtml(item.value || "");
+      const placeholder = escapeHtml(item.placeholder || "");
+      if (item.type === "boolean") {
+        const lower = String(item.value).toLowerCase();
+        return `
+          <select data-env-key="${key}">
+            <option value="true" ${lower === "true" ? "selected" : ""}>true</option>
+            <option value="false" ${lower === "false" ? "selected" : ""}>false</option>
+          </select>
+        `;
+      }
+      if (item.type === "integer" || item.type === "number") {
+        return `<input data-env-key="${key}" type="number" step="any" value="${value}">`;
+      }
+      if (item.type === "secret") {
+        return `<input data-env-key="${key}" type="password" value="" placeholder="${placeholder}">`;
+      }
+      return `<input data-env-key="${key}" type="text" value="${value}">`;
+    }
+    function renderEnvSettings(data) {
+      lastEnvSettings = data;
+      $("envPathText").textContent = data.env_path || ".env";
+      $("envSections").innerHTML = (data.sections || []).map((section) => `
+        <section class="settings-section">
+          <h3>${escapeHtml(section.title)}</h3>
+          <div class="settings-fields">
+            ${(section.items || []).map((item) => `
+              <div class="field">
+                <label>${escapeHtml(item.key)}</label>
+                ${envInput(item)}
+                <div class="field-hint">${item.masked ? (item.has_value ? "secret saved; leave blank to keep" : "secret empty") : escapeHtml(item.type)}</div>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+      `).join("") || '<div class="rule">No .env values found.</div>';}
+    async function openSettingsModal() {
+      $("settingsModal").classList.add("show");
+      $("settingsModal").setAttribute("aria-hidden", "false");
+      const data = await getJson("/settings/env");
+      renderEnvSettings(data);
+    }
+    function closeSettingsModal() {
+      $("settingsModal").classList.remove("show");
+      $("settingsModal").setAttribute("aria-hidden", "true");
+    }
+    async function saveEnvSettings() {
+      const values = {};
+      document.querySelectorAll("[data-env-key]").forEach((input) => {
+        const key = input.dataset.envKey;
+        const value = input.value;
+        const isSecret = (lastEnvSettings?.secret_keys || []).includes(key);
+        if (isSecret && value === "") return;
+        values[key] = value;
+      });
+      const data = await postJson("/settings/env", { values });
+      renderEnvSettings(data);
+      toast(".env saved");
+      refresh();
+    }
+    async function clearSelectedData() {
+      const tables = Array.from(document.querySelectorAll("#clearOptions input:checked"))
+        .map((input) => input.value);
+      if (!tables.length) {
+        toast("pilih minimal satu data");
+        return;
+      }
+      const warning = [
+        `Data yang dipilih: ${tables.join(", ")}`,
+        "Ini hanya clear database lokal.",
+        "Ketik CLEAR_LOCAL_DATA untuk lanjut."
+      ].join("\n\n");
+      const confirmText = prompt(warning, "");
+      if (confirmText !== "CLEAR_LOCAL_DATA") {
+        toast("clear dibatalkan");
+        return;
+      }
+      const res = await postJson("/admin/clear-local-data", {
+        confirm: "CLEAR_LOCAL_DATA",
+        tables,
+        include_candles: tables.includes("candles")
+      });
+      const cleared = res.clear_result?.cleared || {};
+      toast(`cleared: ${Object.entries(cleared).map(([k, v]) => `${k} ${v}`).join("; ")}`);
+      refresh();
     }
     function runtimeNotes(data) {
       const notes = [];
@@ -960,6 +1215,19 @@
         refresh();
       } catch (err) { toast(err.message || String(err)); }
     });
+    $("settingsBtn").addEventListener("click", () => {
+      openSettingsModal().catch((err) => toast(err.message || String(err)));
+    });
+    $("closeSettingsBtn").addEventListener("click", closeSettingsModal);
+    $("settingsModal").addEventListener("click", (event) => {
+      if (event.target.id === "settingsModal") closeSettingsModal();
+    });
+    $("saveEnvBtn").addEventListener("click", () => {
+      saveEnvSettings().catch((err) => toast(err.message || String(err)));
+    });
+    $("clearSelectedBtn").addEventListener("click", () => {
+      clearSelectedData().catch((err) => toast(err.message || String(err)));
+    });
     document.addEventListener("click", async (event) => {
       const target = event.target.closest("button");
       if (!target) return;
@@ -988,24 +1256,7 @@
           refresh();
         }
         if (target.id === "clearLocalBtn") {
-          const warning = [
-            "Ini akan menghapus trade_plans, trades, daily stats, reviews, dan logs lokal.",
-            "Candle market tetap disimpan.",
-            "Ini TIDAK menutup posisi Binance yang sudah open.",
-            "Ketik CLEAR_LOCAL_DATA untuk lanjut."
-          ].join("\n\n");
-          const confirmText = prompt(warning, "");
-          if (confirmText !== "CLEAR_LOCAL_DATA") {
-            toast("clear dibatalkan");
-            return;
-          }
-          const res = await postJson("/admin/clear-local-data", {
-            confirm: "CLEAR_LOCAL_DATA",
-            include_candles: false
-          });
-          const cleared = res.clear_result?.cleared || {};
-          toast(`local journal cleared: ${Object.entries(cleared).map(([k, v]) => `${k} ${v}`).join("; ")}`);
-          refresh();
+          await openSettingsModal();
         }
         if (target.dataset.closePlan) {
           const id = target.dataset.closePlan;

@@ -146,6 +146,7 @@ GUARD_ENABLED=true
 | `/settings` | GET | Snapshot mode dan switch runtime |
 | `/settings/mode` | POST | Ubah mode: `DRY_RUN`, `PAPER`, `BINANCE_DEMO`, `DISABLED` |
 | `/settings/toggle` | POST | Ubah switch runtime seperti `AUTO_ENTRY` atau `GUARD_ENABLED` |
+| `/settings/env` | GET/POST | Baca dan update semua field `.env` dari dashboard |
 | `/last-signal` | GET | Sinyal terakhir |
 | `/trade-plans` | GET | Daftar trade plan |
 | `/trades` | GET | Daftar trade |
@@ -198,9 +199,11 @@ Dashboard runtime controls mengubah mode proses yang sedang berjalan dan menulis
 balik ke `.env`. Di Docker, `docker-compose.yml` me-mount `./.env:/app/.env`
 agar perubahan itu ikut tersimpan di host.
 
-Tombol `clear local journal` hanya membersihkan SQLite lokal untuk
-`trade_plans`, `trades`, daily stats/reviews, dan logs. Candle market tetap
-disimpan. Fitur ini tidak menutup posisi Binance yang benar-benar sudah open.
+Menu settings bisa mengubah semua field `.env`. Secret seperti API key dan
+token bisa diganti, tetapi nilai lama tidak ditampilkan di dashboard. Clear data
+lokal bisa dipilih per bagian: `trade_plans`, `trades`, `daily_stats`,
+`daily_reviews`, `logs`, dan `candles`. Fitur ini tidak menutup posisi Binance
+yang benar-benar sudah open.
 
 ## Database
 
