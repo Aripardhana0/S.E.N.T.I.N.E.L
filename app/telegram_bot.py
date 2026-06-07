@@ -318,7 +318,7 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     message = (
         "SENTINEL STATUS\n"
         f"Mode: {mode} - {_runtime_hint(mode)}\n"
-        f"Symbol: {config.SYMBOL}\n"
+        f"Symbol: {config.SYMBOL} | Strategy: {config.STRATEGY_PROFILE}\n"
         f"Execution: {_onoff(config.EXECUTION_ENABLED)} | "
         f"Auto Entry: {_onoff(config.AUTO_ENTRY)} | "
         f"Manual Approval: {_onoff(config.REQUIRE_MANUAL_APPROVAL)}\n\n"

@@ -36,6 +36,7 @@ class Config:
 
     # --- Auto entry & Market Guard ---
     AUTO_ENTRY = _get_bool("AUTO_ENTRY", True)
+    ENTRY_ORDER_TYPE = os.getenv("ENTRY_ORDER_TYPE", "LIMIT").upper()
     GUARD_ENABLED = _get_bool("GUARD_ENABLED", True)
     GUARD_ATR_SPIKE = _get_float("GUARD_ATR_SPIKE", 1.8)
     GUARD_VOL_SPIKE = _get_float("GUARD_VOL_SPIKE", 3.0)
@@ -72,6 +73,7 @@ class Config:
     SYMBOL = os.getenv("SYMBOL", "BTCUSDT")
     TIMEFRAME_SIGNAL = os.getenv("TIMEFRAME_SIGNAL", "15m")
     TIMEFRAME_TREND = os.getenv("TIMEFRAME_TREND", "1h")
+    STRATEGY_PROFILE = os.getenv("STRATEGY_PROFILE", "balanced")
 
     # --- Risk ---
     INITIAL_EQUITY = _get_float("INITIAL_EQUITY", 5)

@@ -15,7 +15,7 @@ logger = logging.getLogger("ai_reviewer")
 
 SYSTEM_PROMPT = """You are a disciplined BTC Futures trading reviewer.
 Your tasks:
-1. Evaluate setup consistency against trend regime, indicators, entry, SL, TP, RR, and entry reason.
+1. Evaluate setup consistency against strategy profile, setup score, trend regime, indicators, entry, SL, TP, RR, and entry reason.
 2. Support long trades when an uptrend/pullback is valid, short trades when a downtrend/pullback is valid, and breakouts when volume/ADX/body support the move.
 3. Reject or watch if RR is weak, entry chases price, SL is illogical, indicators conflict, or volatility is too aggressive.
 4. Never override the risk manager. If the risk manager rejects, verdict must be reject.
@@ -32,6 +32,8 @@ def _concrete_reason(setup: dict, risk_result: dict, prefix: str) -> str:
         (
             f"{setup.get('setup_type', 'setup')} {setup.get('side', '-')}; "
             f"regime={setup.get('trend_regime', '-')}, "
+            f"profile={setup.get('strategy_profile', '-')}, "
+            f"score={setup.get('setup_score', '-')}/{setup.get('setup_min_score', '-')}, "
             f"RR={setup.get('risk_reward', '-')}, "
             f"RSI={setup.get('rsi', '-')}, ADX={setup.get('adx', '-')}, "
             f"volume_ratio={setup.get('volume_ratio', '-')}."

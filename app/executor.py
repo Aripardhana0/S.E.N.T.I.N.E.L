@@ -1,6 +1,6 @@
 """Trade executor helpers.
 
-The auto branch uses order_queue for Binance LIMIT orders. execute_plan remains
+The auto branch uses order_queue for Binance auto entries. execute_plan remains
 for legacy approval/manual endpoints and DRY_RUN/PAPER modes.
 """
 import logging

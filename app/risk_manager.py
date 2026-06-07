@@ -10,7 +10,7 @@ from app.journal import get_today_stats
 logger = logging.getLogger("risk_manager")
 
 def evaluate(setup: dict, equity: float | None = None) -> dict:
-    """Kembalikan keputusan risk dalam format standar."""
+    """Return the risk decision in a standard format."""
     equity = config.INITIAL_EQUITY if equity is None else equity
 
     learning = performance.evaluate_setup_gate(setup)

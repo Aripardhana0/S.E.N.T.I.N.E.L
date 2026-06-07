@@ -1,7 +1,7 @@
 """Manual entry helper used by Telegram commands."""
 from __future__ import annotations
 
-from app import journal, market_guard, order_queue, risk_manager
+from app import accounting, journal, market_guard, order_queue, risk_manager
 from app.config import config
 
 
@@ -55,7 +55,9 @@ def create_entry(
                 "setup": setup,
             }
 
-    risk = risk_manager.evaluate(setup, equity=config.INITIAL_EQUITY)
+    account = accounting.summary()
+    equity = float(account.get("equity_estimate") or config.INITIAL_EQUITY)
+    risk = risk_manager.evaluate(setup, equity=equity)
     if not risk["allowed"]:
         plan_id = journal.save_trade_plan(setup, risk, {}, "rejected_risk")
         return {

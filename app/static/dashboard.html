@@ -590,7 +590,7 @@
       <div class="tile">
         <div class="tile-label">symbol</div>
         <div class="tile-value" id="symbol">-</div>
-        <div class="tile-note">signal 15m / trend 1h</div>
+        <div class="tile-note" id="strategyProfile">signal 15m / trend 1h</div>
       </div>
       <div class="tile">
         <div class="tile-label">balance</div>
@@ -675,6 +675,8 @@
             <div class="kv-item"><div class="label">auto entry</div><div id="autoEntry" class="value">-</div></div>
             <div class="kv-item"><div class="label">market guard</div><div id="guardEnabled" class="value">-</div></div>
             <div class="kv-item"><div class="label">manual approval</div><div id="manualApproval" class="value">-</div></div>
+            <div class="kv-item"><div class="label">entry type</div><div id="entryType" class="value">-</div></div>
+            <div class="kv-item"><div class="label">strategy profile</div><div id="runtimeStrategyProfile" class="value">-</div></div>
           </div>
           <div class="notes" id="runtimeNotes"></div>
         </div>
@@ -971,10 +973,13 @@
       $("modePill").textContent = mode;
       $("modePill").className = mode === "BINANCE_DEMO" ? "pill warn" : mode === "DRY_RUN" ? "pill ok" : "pill";
       $("symbol").textContent = data.symbol || "-";
+      $("strategyProfile").textContent = `strategy ${data.strategy_profile || "balanced"}`;
       $("execution").innerHTML = boolPill(data.execution_enabled);
       $("autoEntry").innerHTML = boolPill(data.auto_entry);
       $("guardEnabled").innerHTML = boolPill(data.guard_enabled);
       $("manualApproval").innerHTML = boolPill(data.require_manual_approval);
+      $("entryType").textContent = lastSettings?.entry_order_type || "-";
+      $("runtimeStrategyProfile").textContent = lastSettings?.strategy_profile || data.strategy_profile || "balanced";
       $("runtimeNotes").innerHTML = runtimeNotes(data).join("");
 
       const today = data.today || {};
@@ -1009,6 +1014,8 @@
       $("toggleAutoBtn").textContent = `auto ${data.auto_entry ? "on" : "off"}`;
       $("toggleGuardBtn").textContent = `guard ${data.guard_enabled ? "on" : "off"}`;
       $("toggleManualBtn").textContent = `manual ${data.require_manual_approval ? "on" : "off"}`;
+      $("entryType").textContent = data.entry_order_type || "-";
+      $("runtimeStrategyProfile").textContent = data.strategy_profile || "balanced";
     }
     function envInput(item) {
       const key = escapeHtml(item.key);

@@ -204,6 +204,7 @@ def status():
     return {
         "mode": current_mode(),
         "symbol": config.SYMBOL,
+        "strategy_profile": config.STRATEGY_PROFILE,
         "execution_enabled": config.EXECUTION_ENABLED,
         "auto_entry": config.AUTO_ENTRY,
         "guard_enabled": config.GUARD_ENABLED,

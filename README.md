@@ -14,6 +14,7 @@ DRY_RUN=true
 PAPER_TRADE=true
 EXECUTION_ENABLED=false
 AUTO_ENTRY=true
+ENTRY_ORDER_TYPE=LIMIT
 GUARD_ENABLED=true
 ```
 
@@ -76,6 +77,7 @@ DASHBOARD_SESSION_SECRET=
 SYMBOL=BTCUSDT
 TIMEFRAME_SIGNAL=15m
 TIMEFRAME_TREND=1h
+STRATEGY_PROFILE=balanced
 
 INITIAL_EQUITY=5
 MAX_RISK_PER_TRADE=0.01
@@ -94,6 +96,24 @@ LEARNING_BLOCK_LOSS_STREAK=3
 LEARNING_RISK_MULTIPLIER=0.5
 LEARNING_RR_BUFFER=0.25
 ```
+
+## Strategy Profiles
+
+`STRATEGY_PROFILE` controls how selective the entry engine is before Market
+Guard, Risk Manager, Learning Guard, and AI review.
+
+- `conservative`: closest to the original strict filters. Fewer entries.
+- `balanced`: scoring-based entries for demo data collection. Default.
+- `exploratory`: looser scoring for demo-only sampling. More entries, more noise.
+
+The strategy now scores trend pullbacks, volatility breakouts, and controlled
+range reversion setups. Every generated plan stores `strategy_profile`,
+`setup_score`, and a numeric entry reason inside the raw payload so later
+performance review can compare setup quality.
+
+For demo data collection, `ENTRY_ORDER_TYPE=MARKET` can be used to fill entries
+immediately after a setup passes all guards. Keep `ENTRY_ORDER_TYPE=LIMIT` when
+you want price-confirmed pullback fills instead of immediate entries.
 
 ## Learning Guard
 

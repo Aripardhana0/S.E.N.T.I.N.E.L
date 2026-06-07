@@ -11,11 +11,11 @@ from app.market_data import load_candles_df
 from app.indicators import (
     add_indicators,
     is_downtrend,
-    is_pullback_long_setup,
-    is_pullback_short_setup,
     is_uptrend,
+    pullback_setup_score,
+    range_reversion_score,
     trend_regime,
-    volatility_breakout,
+    volatility_breakout_score,
 )
 
 logger = logging.getLogger("strategy")
@@ -28,8 +28,20 @@ def _volume_ratio(row) -> float:
     return round(float(row.get("volume", 0) or 0) / vol_ma, 2)
 
 
+def _profile() -> str:
+    return str(getattr(config, "STRATEGY_PROFILE", "balanced") or "balanced").lower()
+
+
+def _score_reason(base: str, score: dict) -> str:
+    return (
+        f"{base} Score {score.get('score', 0)}/"
+        f"{score.get('min_score', '-')}: {score.get('reason', '-')}"
+    )
+
+
 def _build_setup(side: str, setup_type: str, entry: float, stop_loss: float,
-                 take_profit: float, last, regime: str, reason: str) -> dict | None:
+                 take_profit: float, last, regime: str, reason: str,
+                 score: dict | None = None) -> dict | None:
     if side == "short" and not (stop_loss > entry > take_profit):
         logger.info("Skip %s: invalid short SL/TP.", setup_type)
         return None
@@ -56,6 +68,9 @@ def _build_setup(side: str, setup_type: str, entry: float, stop_loss: float,
         "adx": round(float(last.get("adx14", 0) or 0), 2),
         "volume_ratio": _volume_ratio(last),
         "trend_regime": regime,
+        "strategy_profile": _profile(),
+        "setup_score": score.get("score") if score else None,
+        "setup_min_score": score.get("min_score") if score else None,
         "entry_reason": reason,
     }
 
@@ -67,7 +82,9 @@ def _trend_pullback(df_trend, df_signal, regime: str) -> dict | None:
     if atr <= 0:
         return None
 
-    if regime == "uptrend" and is_pullback_long_setup(df_signal, atr):
+    profile = _profile()
+    long_score = pullback_setup_score(df_signal, atr, "long", profile)
+    if regime == "uptrend" and long_score["ok"]:
         stop_loss = float(last["low"]) - atr * 0.25
         risk = entry - stop_loss
         take_profit = entry + risk * config.MIN_RR
@@ -79,10 +96,12 @@ def _trend_pullback(df_trend, df_signal, regime: str) -> dict | None:
             take_profit,
             last,
             regime,
-            "1h uptrend, 15m pullback to EMA, bullish confirmation candle.",
+            _score_reason("1h uptrend pullback long.", long_score),
+            long_score,
         )
 
-    if regime == "downtrend" and is_pullback_short_setup(df_signal, atr):
+    short_score = pullback_setup_score(df_signal, atr, "short", profile)
+    if regime == "downtrend" and short_score["ok"]:
         stop_loss = float(last["high"]) + atr * 0.25
         risk = stop_loss - entry
         take_profit = entry - risk * config.MIN_RR
@@ -94,7 +113,8 @@ def _trend_pullback(df_trend, df_signal, regime: str) -> dict | None:
             take_profit,
             last,
             regime,
-            "1h downtrend, 15m pullback to EMA, bearish confirmation candle.",
+            _score_reason("1h downtrend pullback short.", short_score),
+            short_score,
         )
     return None
 
@@ -105,8 +125,9 @@ def _volatility_setup(df_trend, df_signal, regime: str) -> dict | None:
     atr = float(last.get("atr14", 0) or 0)
     if atr <= 0:
         return None
-    side = volatility_breakout(df_signal, atr)
-    if not side:
+    score = volatility_breakout_score(df_signal, atr, _profile())
+    side = score.get("side")
+    if not side or not score.get("ok"):
         return None
     if side == "long" and is_downtrend(df_trend):
         return None
@@ -125,7 +146,8 @@ def _volatility_setup(df_trend, df_signal, regime: str) -> dict | None:
             take_profit,
             last,
             regime,
-            "15m range breakout up with volume, body, and ADX confirmation.",
+            _score_reason("15m volatility breakout long.", score),
+            score,
         )
 
     stop_loss = max(float(last["high"]), entry + atr * 0.85)
@@ -139,7 +161,54 @@ def _volatility_setup(df_trend, df_signal, regime: str) -> dict | None:
         take_profit,
         last,
         regime,
-        "15m range breakout down with volume, body, and ADX confirmation.",
+        _score_reason("15m volatility breakout short.", score),
+        score,
+    )
+
+
+def _range_reversion_setup(df_signal, regime: str) -> dict | None:
+    if regime != "range":
+        return None
+    last = df_signal.iloc[-1]
+    entry = float(last["close"])
+    atr = float(last.get("atr14", 0) or 0)
+    if atr <= 0:
+        return None
+
+    score = range_reversion_score(df_signal, atr, _profile())
+    side = score.get("side")
+    if not side or not score.get("ok"):
+        return None
+
+    if side == "long":
+        stop_loss = min(float(last["low"]), entry - atr * 0.75)
+        risk = entry - stop_loss
+        take_profit = entry + risk * config.MIN_RR
+        return _build_setup(
+            "long",
+            "range_reversion_long",
+            entry,
+            stop_loss,
+            take_profit,
+            last,
+            regime,
+            _score_reason("Range reversion long.", score),
+            score,
+        )
+
+    stop_loss = max(float(last["high"]), entry + atr * 0.75)
+    risk = stop_loss - entry
+    take_profit = entry - risk * config.MIN_RR
+    return _build_setup(
+        "short",
+        "range_reversion_short",
+        entry,
+        stop_loss,
+        take_profit,
+        last,
+        regime,
+        _score_reason("Range reversion short.", score),
+        score,
     )
 
 
@@ -163,5 +232,10 @@ def generate_signal() -> dict | None:
         logger.info("Volatility setup found: %s", setup)
         return setup
 
-    logger.debug("Skip: no strong setup found. regime=%s", regime)
+    setup = _range_reversion_setup(df_signal, regime)
+    if setup:
+        logger.info("Range reversion setup found: %s", setup)
+        return setup
+
+    logger.debug("Skip: no scored setup found. regime=%s profile=%s", regime, _profile())
     return None

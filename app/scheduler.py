@@ -4,6 +4,7 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app import (
+    accounting,
     ai_reviewer,
     journal,
     market_data,
@@ -43,7 +44,9 @@ async def run_strategy():
                 journal.log_event("INFO", f"Skip entry, bad market: {guard['reasons']}")
                 return
 
-        risk = risk_manager.evaluate(setup, equity=config.INITIAL_EQUITY)
+        account = accounting.summary()
+        equity = float(account.get("equity_estimate") or config.INITIAL_EQUITY)
+        risk = risk_manager.evaluate(setup, equity=equity)
         if not risk["allowed"]:
             journal.save_trade_plan(setup, risk, {}, "rejected_risk")
             journal.log_event("INFO", f"Setup rejected by risk: {risk['reason']}")

@@ -22,8 +22,13 @@ def _plan_to_setup(plan: dict) -> dict:
     }
 
 
+def _entry_order_type() -> str:
+    order_type = str(getattr(config, "ENTRY_ORDER_TYPE", "LIMIT") or "LIMIT").upper()
+    return "MARKET" if order_type == "MARKET" else "LIMIT"
+
+
 def enqueue_entry(plan_id: int) -> dict:
-    """Place a LIMIT order for a plan that passed guard, risk, and AI checks."""
+    """Place or simulate an entry for a plan that passed guard, risk, and AI checks."""
     plan = journal.get_trade_plan(plan_id)
     if not plan:
         return {"ok": False, "message": "Plan not found."}
@@ -36,17 +41,54 @@ def enqueue_entry(plan_id: int) -> dict:
     qty = binance_client.round_qty(plan["position_size"])
     price = binance_client.round_price(plan["entry"])
     mode = current_mode()
+    order_type = _entry_order_type()
+
+    if qty <= 0:
+        journal.update_trade_plan_status(plan_id, "queue_failed")
+        return {"ok": False, "message": "Position quantity rounded to zero; increase equity/risk or precision."}
 
     if mode in ("DRY_RUN", "PAPER"):
+        if order_type == "MARKET":
+            journal.save_trade(plan_id, _plan_to_setup(plan), plan["position_size"], mode, f"SIM-{plan_id}")
+            journal.set_order_id(plan_id, f"SIM-{plan_id}")
+            journal.update_trade_plan_status(plan_id, "filled_sim")
+            journal.log_event("INFO", f"{mode}: simulated market entry filled for plan {plan_id}.")
+            return {
+                "ok": True,
+                "message": f"{mode}: simulated market entry filled.",
+                "mode": mode,
+                "order_type": order_type,
+            }
         journal.set_order_id(plan_id, f"SIM-{plan_id}")
         journal.update_trade_plan_status(plan_id, "queued_sim")
         journal.log_event("INFO", f"{mode}: simulated queue for plan {plan_id}.")
-        return {"ok": True, "message": f"{mode}: simulated queue created.", "mode": mode}
+        return {
+            "ok": True,
+            "message": f"{mode}: simulated limit queue created.",
+            "mode": mode,
+            "order_type": order_type,
+        }
 
     if mode == "BINANCE_DEMO":
         if not config.has_binance_credentials():
             return {"ok": False, "message": "Binance credentials are incomplete."}
         binance_client.set_leverage(symbol, config.MAX_LEVERAGE)
+        if order_type == "MARKET":
+            resp = binance_client.place_market_order(symbol, side, qty)
+            if not resp or "orderId" not in resp:
+                journal.update_trade_plan_status(plan_id, "queue_failed")
+                journal.log_event("ERROR", f"Market entry failed for plan {plan_id}: {resp}")
+                return {"ok": False, "message": f"Market entry failed: {resp}"}
+            journal.set_order_id(plan_id, str(resp["orderId"]))
+            journal.save_trade(plan_id, _plan_to_setup(plan), qty, "BINANCE_DEMO", str(resp["orderId"]))
+            journal.update_trade_plan_status(plan_id, "filled")
+            journal.log_event("INFO", f"Binance market entry filled for plan {plan_id}.")
+            return {
+                "ok": True,
+                "message": f"Market entry filled (orderId={resp['orderId']}).",
+                "mode": mode,
+                "order_type": order_type,
+            }
         resp = binance_client.place_limit_order(symbol, side, qty, price)
         if not resp or "orderId" not in resp:
             journal.update_trade_plan_status(plan_id, "queue_failed")
@@ -59,6 +101,7 @@ def enqueue_entry(plan_id: int) -> dict:
             "ok": True,
             "message": f"Queue placed (orderId={resp['orderId']}).",
             "mode": mode,
+            "order_type": order_type,
         }
 
     return {"ok": False, "message": "Execution is disabled (mode DISABLED)."}

@@ -196,8 +196,10 @@ def snapshot() -> dict:
         "execution_enabled": config.EXECUTION_ENABLED,
         "binance_demo_trading": config.BINANCE_DEMO_TRADING,
         "auto_entry": config.AUTO_ENTRY,
+        "entry_order_type": config.ENTRY_ORDER_TYPE,
         "guard_enabled": config.GUARD_ENABLED,
         "require_manual_approval": config.REQUIRE_MANUAL_APPROVAL,
+        "strategy_profile": config.STRATEGY_PROFILE,
     }
 
 
