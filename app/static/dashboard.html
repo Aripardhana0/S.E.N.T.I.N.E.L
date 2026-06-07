@@ -1021,6 +1021,17 @@
       const key = escapeHtml(item.key);
       const value = escapeHtml(item.value || "");
       const placeholder = escapeHtml(item.placeholder || "");
+      if (item.type === "choice") {
+        const current = String(item.value || "").toLowerCase();
+        return `
+          <select data-env-key="${key}">
+            ${(item.choices || []).map((choice) => {
+              const selected = String(choice).toLowerCase() === current ? "selected" : "";
+              return `<option value="${escapeHtml(choice)}" ${selected}>${escapeHtml(choice)}</option>`;
+            }).join("")}
+          </select>
+        `;
+      }
       if (item.type === "boolean") {
         const lower = String(item.value).toLowerCase();
         return `

@@ -89,6 +89,16 @@ SECRET_KEYS = {
     "DASHBOARD_SESSION_SECRET",
 }
 
+CHOICE_KEYS = {
+    "ENTRY_ORDER_TYPE": ["LIMIT", "MARKET"],
+    "STRATEGY_PROFILE": ["conservative", "balanced", "exploratory"],
+}
+
+DEFAULT_ENV_FIELDS = [
+    ("AUTO ENTRY & MARKET GUARD", "ENTRY_ORDER_TYPE", "LIMIT"),
+    ("MARKET / STRATEGY", "STRATEGY_PROFILE", "balanced"),
+]
+
 
 def _as_bool(value: str | bool) -> bool:
     if isinstance(value, bool):
@@ -125,6 +135,8 @@ def _read_key_values(path: Path) -> tuple[dict[str, str], list[dict]]:
 def _key_type(key: str, value: str = "") -> str:
     if key in SECRET_KEYS:
         return "secret"
+    if key in CHOICE_KEYS:
+        return "choice"
     if key in BOOL_KEYS or value.lower() in ("true", "false", "yes", "no", "on", "off"):
         return "boolean"
     if key in INT_KEYS:
@@ -143,6 +155,9 @@ def _known_key_order() -> list[str]:
             if key not in keys:
                 keys.append(key)
     for key in list(env_values) + list(example_values):
+        if key not in keys:
+            keys.append(key)
+    for _title, key, _default in DEFAULT_ENV_FIELDS:
         if key not in keys:
             keys.append(key)
     return keys
@@ -232,7 +247,8 @@ def set_bool(key: str, value: bool) -> dict:
 def env_snapshot() -> dict:
     env_values, env_sections = _read_key_values(ENV_PATH)
     example_values, example_sections = _read_key_values(ENV_EXAMPLE_PATH)
-    merged = {**example_values, **env_values}
+    default_values = {key: default for _title, key, default in DEFAULT_ENV_FIELDS}
+    merged = {**default_values, **example_values, **env_values}
     sections_by_title = {}
     ordered_titles = []
     for section in example_sections + env_sections:
@@ -245,6 +261,15 @@ def env_snapshot() -> dict:
                 sections_by_title[title].append(key)
 
     assigned = {key for keys in sections_by_title.values() for key in keys}
+    for title, key, _default in DEFAULT_ENV_FIELDS:
+        if key in assigned:
+            continue
+        if title not in sections_by_title:
+            sections_by_title[title] = []
+            ordered_titles.append(title)
+        sections_by_title[title].append(key)
+        assigned.add(key)
+
     loose_keys = [key for key in _known_key_order() if key not in assigned]
     if loose_keys:
         sections_by_title["GENERAL"] = loose_keys
@@ -265,6 +290,7 @@ def env_snapshot() -> dict:
                     "masked": item_type == "secret",
                     "has_value": bool(value),
                     "placeholder": "unchanged" if item_type == "secret" and value else "",
+                    "choices": CHOICE_KEYS.get(key, []),
                 }
             )
         if items:
@@ -293,6 +319,14 @@ def update_env_values(values: dict[str, str]) -> dict:
             value = str(int(value))
         elif key in FLOAT_KEYS:
             value = str(float(value))
+        elif key in CHOICE_KEYS:
+            match = next(
+                (choice for choice in CHOICE_KEYS[key] if choice.lower() == value.lower()),
+                None,
+            )
+            if match is None:
+                raise ValueError(f"Setting {key} must be one of: {', '.join(CHOICE_KEYS[key])}.")
+            value = match
         cleaned[key] = value
     if not cleaned:
         return env_snapshot()
