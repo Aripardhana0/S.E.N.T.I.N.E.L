@@ -72,6 +72,7 @@ async def run_strategy():
             )
     except Exception as exc:
         logger.exception("run_strategy error: %s", exc)
+        journal.log_event("ERROR", f"run_strategy error: {exc.__class__.__name__}: {exc}")
 
 
 async def _job_market_guard():
@@ -91,6 +92,7 @@ async def _job_market_guard():
             )
     except Exception as exc:
         logger.exception("market_guard job error: %s", exc)
+        journal.log_event("ERROR", f"market_guard job error: {exc.__class__.__name__}: {exc}")
 
 
 async def _job_sync_fills():
@@ -110,6 +112,7 @@ async def _job_sync_fills():
             await telegram_bot.send_message("TP/SL closed:\n" + "\n".join(lines))
     except Exception as exc:
         logger.exception("sync_fills job error: %s", exc)
+        journal.log_event("ERROR", f"sync_fills job error: {exc.__class__.__name__}: {exc}")
 
 
 async def _job_daily_report():
